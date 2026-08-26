@@ -1,0 +1,536 @@
+{
+  "name": "Arena.ai FULL FACTORY - Build + Security + PlayStore + UI + Perf (7 Stages)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "id": "trigger",
+      "name": "Start Factory",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "idea",
+              "name": "project_idea",
+              "value": "تطبيق تذكير شرب الماء: Jetpack Compose + Room + إشعارات + رسم بياني + Material3 + Dark Mode",
+              "type": "string"
+            },
+            {
+              "id": "duration",
+              "name": "duration_hours",
+              "value": 72,
+              "type": "number"
+            },
+            {
+              "id": "start",
+              "name": "start_time",
+              "value": "={{ $now }}",
+              "type": "string"
+            },
+            {
+              "id": "project_path",
+              "name": "project_path",
+              "value": "/home/node/android_projects/WaterApp",
+              "type": "string"
+            },
+            {
+              "id": "iteration",
+              "name": "iteration",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "session",
+              "name": "arena_session_file",
+              "value": "/tmp/arena_session.json",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-vars",
+      "name": "Set Factory Variables",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.iteration }}",
+              "operation": "equal",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "is-first",
+      "name": "IF First Time?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=create --idea=\"{{$json.project_idea}}\" --session={{$json.arena_session_file}}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "arena-create",
+      "name": "1. Arena CREATE App",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [720, -400]
+    },
+    {
+      "parameters": {
+        "command": "=bash /home/node/scripts/sync-arena-to-android.sh /tmp/arena_output {{$json.project_path}}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "sync",
+      "name": "Sync → Android Studio",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [960, 0]
+    },
+    {
+      "parameters": {
+        "command": "=bash /home/node/scripts/build-and-test.sh {{$json.project_path}}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "build",
+      "name": "2. Build APK",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1200, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.stdout }}",
+              "operation": "contains",
+              "value2": "BUILD_SUCCESS"
+            }
+          ]
+        }
+      },
+      "id": "check-build",
+      "name": "IF Build OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1440, 0]
+    },
+    {
+      "parameters": {
+        "command": "=cat /tmp/android_logs/build_full.log | tail -n 400",
+        "options": {}
+      },
+      "id": "get-build-error",
+      "name": "Get Build Error",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1440, 400]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=fix --error=\"{{ $json.stdout.replace(/\"/g, '\\\"').slice(0, 7000) }}\" --session={{ $('Set Factory Variables').item.json.arena_session_file }}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "arena-fix-build",
+      "name": "Arena FIX Build",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1680, 400]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=security --project={{$json.project_path}} --session={{$json.arena_session_file}}",
+        "options": {
+          "timeout": 900000
+        }
+      },
+      "id": "security",
+      "name": "3. Security Audit (OWASP)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1680, -200]
+    },
+    {
+      "parameters": {
+        "command": "=cat /tmp/arena_output/full_response.txt | head -n 300",
+        "options": {}
+      },
+      "id": "read-security",
+      "name": "Read Security Report",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1920, -200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.stdout }}",
+              "operation": "contains",
+              "value2": "M1"
+            },
+            {
+              "value1": "={{ $json.stdout }}",
+              "operation": "contains",
+              "value2": "vulnerab"
+            },
+            {
+              "value1": "={{ $json.stdout }}",
+              "operation": "contains",
+              "value2": "high"
+            }
+          ]
+        },
+        "options": {
+          "allMatch": false
+        }
+      },
+      "id": "has-vulns",
+      "name": "IF Has Vulns?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2160, -200]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=fix-security --error=\"{{ $json.stdout.replace(/\"/g, '\\\"').slice(0, 9000) }}\" --session={{ $('Set Factory Variables').item.json.arena_session_file }}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "fix-security",
+      "name": "Arena FIX Security",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2400, -400]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=playstore --project={{$json.project_path}} --session={{$json.arena_session_file}}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "playstore-check",
+      "name": "4. Play Store Policy Check",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2400, 0]
+    },
+    {
+      "parameters": {
+        "command": "=cat /tmp/arena_output/full_response.txt | head -n 300",
+        "options": {}
+      },
+      "id": "read-policy",
+      "name": "Read Policy Report",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2640, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.stdout }}",
+              "operation": "contains",
+              "value2": "REJECT"
+            },
+            {
+              "value1": "={{ $json.stdout }}",
+              "operation": "contains",
+              "value2": "policy_issues"
+            },
+            {
+              "value1": "={{ $json.stdout }}",
+              "operation": "contains",
+              "value2": "Permission"
+            }
+          ]
+        },
+        "options": {
+          "allMatch": false
+        }
+      },
+      "id": "has-policy-issues",
+      "name": "IF Policy Issues?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2880, 0]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=fix-playstore --error=\"{{ $json.stdout.replace(/\"/g, '\\\"').slice(0, 8000) }}\" --session={{ $('Set Factory Variables').item.json.arena_session_file }}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "fix-policy",
+      "name": "Arena FIX Policy",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [3120, -200]
+    },
+    {
+      "parameters": {
+        "command": "=bash /home/node/scripts/take-screenshot.sh {{$json.project_path}}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "screenshot",
+      "name": "5. Take Screenshot + Perf Info",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [3120, 200]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=ui-review --session={{$json.arena_session_file}} --screenshot=/tmp/arena_screenshots/latest.png",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "ui-review",
+      "name": "6. UI/UX Vision Review",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [3360, 200]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=performance --session={{$json.arena_session_file}}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "perf",
+      "name": "7. Performance Optimize",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [3600, 0]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=improve --session={{$json.arena_session_file}}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "improve",
+      "name": "8. Improve Feature",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [3840, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ ($now.toMillis() - Date.parse($('Set Factory Variables').item.json.start_time)) / 3600000 }}",
+              "operation": "larger",
+              "value2": "={{ $('Set Factory Variables').item.json.duration_hours }}"
+            }
+          ]
+        }
+      },
+      "id": "check-duration",
+      "name": "IF Duration Finished?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [4080, 0]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "minutes"
+      },
+      "id": "wait",
+      "name": "Wait 5min",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [4320, 0]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=🏭 Arena FULL FACTORY - دورة {{$('Set Factory Variables').item.json.iteration}}\n\n📁 {{$('Set Factory Variables').item.json.project_path}}\n✅ Build: {{ $('Build APK (Gradle)').item.json.stdout.includes('BUILD_SUCCESS') ? 'OK' : 'FAIL' }}\n🔐 Security: {{ $('Read Security Report').item.json.stdout.slice(0, 100) }}\n📜 Policy: {{ $('Read Policy Report').item.json.stdout.slice(0, 100) }}\n🎨 UI: تمت المراجعة\n⚡ Perf: تم\n⏱️ {{ Math.round(($now.toMillis() - Date.parse($('Set Factory Variables').item.json.start_time))/3600000*10)/10 }} / {{$('Set Factory Variables').item.json.duration_hours}}h\n\n🔗 Arena Session: {{ $('Set Factory Variables').item.json.arena_session_file }}",
+        "additionalFields": {}
+      },
+      "id": "telegram",
+      "name": "Telegram Full Report",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [4560, 0]
+    },
+    {
+      "parameters": {
+        "workflowId": "arena-full-factory",
+        "data": {
+          "project_idea": "={{ $('Set Factory Variables').item.json.project_idea }}",
+          "duration_hours": "={{ $('Set Factory Variables').item.json.duration_hours }}",
+          "start_time": "={{ $('Set Factory Variables').item.json.start_time }}",
+          "project_path": "={{ $('Set Factory Variables').item.json.project_path }}",
+          "iteration": "={{ $('Set Factory Variables').item.json.iteration + 1 }}",
+          "arena_session_file": "={{ $('Set Factory Variables').item.json.arena_session_file }}"
+        }
+      },
+      "id": "loop",
+      "name": "Loop Factory",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [4800, 0]
+    },
+    {
+      "parameters": {
+        "command": "=cd {{ $json.project_path }} && ./gradlew bundleRelease --stacktrace | tail -n 50 && ls -lh app/build/outputs/bundle/release/ && node /home/node/scripts/arena-pure.js --mode=publish-listing --idea=\"{{ $('Set Factory Variables').item.json.project_idea }}\" --session={{ $json.arena_session_file }}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "final-build",
+      "name": "Final Release AAB + Store Listing",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [4320, 400]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=🎉 انتهى المصنع الكامل - Arena.ai ONLY\n\n📁 {{$('Set Factory Variables').item.json.project_path}}\n⏱️ المدة: {{$('Set Factory Variables').item.json.duration_hours}} ساعة\n🔄 الدورات: {{$('Set Factory Variables').item.json.iteration}}\n\n✅ Build: OK\n🔐 Security: تم فحص OWASP + Strix via Arena\n📜 Play Store Policy: تم\n🎨 UI Vision: تم\n⚡ Performance: تم\n\n📦 APK Debug: {{$('Set Factory Variables').item.json.project_path}}/app/build/outputs/apk/debug/app-debug.apk\n📦 AAB Release: {{$('Set Factory Variables').item.json.project_path}}/app/build/outputs/bundle/release/app-release.aab\n\nكل الذكاء من Arena.ai Agent Mode فقط - $0 تكلفة 🚀",
+        "additionalFields": {}
+      },
+      "id": "final-report",
+      "name": "Final Factory Report",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [4560, 400]
+    }
+  ],
+  "connections": {
+    "Start Factory": {
+      "main": [[{ "node": "Set Factory Variables", "type": "main", "index": 0 }]]
+    },
+    "Set Factory Variables": {
+      "main": [[{ "node": "IF First Time?", "type": "main", "index": 0 }]]
+    },
+    "IF First Time?": {
+      "main": [
+        [{ "node": "1. Arena CREATE App", "type": "main", "index": 0 }],
+        [{ "node": "Sync → Android Studio", "type": "main", "index": 0 }]
+      ]
+    },
+    "1. Arena CREATE App": {
+      "main": [[{ "node": "Sync → Android Studio", "type": "main", "index": 0 }]]
+    },
+    "Sync → Android Studio": {
+      "main": [[{ "node": "2. Build APK", "type": "main", "index": 0 }]]
+    },
+    "2. Build APK": {
+      "main": [[{ "node": "IF Build OK?", "type": "main", "index": 0 }]]
+    },
+    "IF Build OK?": {
+      "main": [
+        [{ "node": "3. Security Audit (OWASP)", "type": "main", "index": 0 }],
+        [{ "node": "Get Build Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Build Error": {
+      "main": [[{ "node": "Arena FIX Build", "type": "main", "index": 0 }]]
+    },
+    "Arena FIX Build": {
+      "main": [[{ "node": "Sync → Android Studio", "type": "main", "index": 0 }]]
+    },
+    "3. Security Audit (OWASP)": {
+      "main": [[{ "node": "Read Security Report", "type": "main", "index": 0 }]]
+    },
+    "Read Security Report": {
+      "main": [[{ "node": "IF Has Vulns?", "type": "main", "index": 0 }]]
+    },
+    "IF Has Vulns?": {
+      "main": [
+        [{ "node": "Arena FIX Security", "type": "main", "index": 0 }],
+        [{ "node": "4. Play Store Policy Check", "type": "main", "index": 0 }]
+      ]
+    },
+    "Arena FIX Security": {
+      "main": [[{ "node": "Sync → Android Studio", "type": "main", "index": 0 }]]
+    },
+    "4. Play Store Policy Check": {
+      "main": [[{ "node": "Read Policy Report", "type": "main", "index": 0 }]]
+    },
+    "Read Policy Report": {
+      "main": [[{ "node": "IF Policy Issues?", "type": "main", "index": 0 }]]
+    },
+    "IF Policy Issues?": {
+      "main": [
+        [{ "node": "Arena FIX Policy", "type": "main", "index": 0 }],
+        [{ "node": "5. Take Screenshot + Perf Info", "type": "main", "index": 0 }]
+      ]
+    },
+    "Arena FIX Policy": {
+      "main": [[{ "node": "Sync → Android Studio", "type": "main", "index": 0 }]]
+    },
+    "5. Take Screenshot + Perf Info": {
+      "main": [[{ "node": "6. UI/UX Vision Review", "type": "main", "index": 0 }]]
+    },
+    "6. UI/UX Vision Review": {
+      "main": [[{ "node": "7. Performance Optimize", "type": "main", "index": 0 }]]
+    },
+    "7. Performance Optimize": {
+      "main": [[{ "node": "8. Improve Feature", "type": "main", "index": 0 }]]
+    },
+    "8. Improve Feature": {
+      "main": [[{ "node": "IF Duration Finished?", "type": "main", "index": 0 }]]
+    },
+    "IF Duration Finished?": {
+      "main": [
+        [{ "node": "Final Release AAB + Store Listing", "type": "main", "index": 0 }],
+        [{ "node": "Wait 5min", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait 5min": {
+      "main": [[{ "node": "Telegram Full Report", "type": "main", "index": 0 }]]
+    },
+    "Telegram Full Report": {
+      "main": [[{ "node": "Loop Factory", "type": "main", "index": 0 }]]
+    },
+    "Final Release AAB + Store Listing": {
+      "main": [[{ "node": "Final Factory Report", "type": "main", "index": 0 }]]
+    }
+  },
+  "meta": {
+    "instanceId": "arena-full-factory",
+    "notes": "Full Factory 7 stages: Build + Security (Strix via Arena) + PlayStore Policy + UI Vision + Perf + Improve - 100% Arena.ai ONLY, no APIs"
+  }
+}

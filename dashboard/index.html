@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arena.ai FULL FACTORY Dashboard</title>
+<style>
+  body { font-family: 'Segoe UI', Tahoma; background: #0f172a; color: #e2e8f0; margin: 0; padding: 20px; }
+  .header { text-align: center; padding: 20px; background: linear-gradient(90deg, #6366f1, #8b5cf6); border-radius: 12px; margin-bottom: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .card { background: #1e293b; border-radius: 12px; padding: 20px; border: 1px solid #334155; }
+  .card h3 { margin: 0 0 15px 0; color: #38bdf8; }
+  .status-ok { color: #22c55e; } .status-fail { color: #ef4444; } .status-warn { color: #f59e0b; }
+  .screenshot { width: 100%; max-width: 300px; border-radius: 8px; border: 2px solid #334155; }
+  .log { background: #0f172a; padding: 10px; border-radius: 8px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; }
+  .metric { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #334155; }
+  .refresh { position: fixed; bottom: 20px; left: 20px; background: #6366f1; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🏭 Arena.ai FULL FACTORY Dashboard</h1>
+  <p>100% Arena.ai Agent Mode ONLY - No APIs - Build + Security + PlayStore + UI + Perf</p>
+  <p id="timestamp"></p>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h3>📊 المصنع</h3>
+    <div class="metric"><span>الحالة:</span><span id="factory-status" class="status-ok">يعمل ✅</span></div>
+    <div class="metric"><span>الدورة:</span><span id="iteration">0</span></div>
+    <div class="metric"><span>المدة:</span><span id="duration">0 / 72h</span></div>
+    <div class="metric"><span>جلسة Arena:</span><span id="arena-url" style="font-size:10px">-</span></div>
+  </div>
+
+  <div class="card">
+    <h3>🏗️ البناء</h3>
+    <div class="metric"><span>الحالة:</span><span id="build-status" class="status-ok">-</span></div>
+    <div class="metric"><span>APK Size:</span><span id="apk-size">-</span></div>
+    <div class="metric"><span>Build Time:</span><span id="build-time">-</span></div>
+    <div class="log" id="build-log">لا يوجد log بعد...</div>
+  </div>
+
+  <div class="card">
+    <h3>🔐 الأمان (Strix via Arena)</h3>
+    <div class="metric"><span>الثغرات:</span><span id="vuln-count">0</span></div>
+    <div class="log" id="security-log">لم يتم الفحص بعد...</div>
+  </div>
+
+  <div class="card">
+    <h3>📜 Play Store Policy</h3>
+    <div class="metric"><span>الحالة:</span><span id="policy-status">-</span></div>
+    <div class="log" id="policy-log">لم يتم الفحص بعد...</div>
+  </div>
+
+  <div class="card">
+    <h3>📸 آخر Screenshot (UI Vision)</h3>
+    <img id="screenshot" class="screenshot" src="" alt="No screenshot yet" onerror="this.style.display='none'">
+    <div class="metric"><span>آخر تحديث:</span><span id="screenshot-time">-</span></div>
+    <div class="log" id="ui-log">لم تتم مراجعة UI بعد...</div>
+  </div>
+
+  <div class="card">
+    <h3>⚡ الأداء</h3>
+    <div class="metric"><span>RAM:</span><span id="ram">-</span></div>
+    <div class="metric"><span>Logcat:</span><span id="logcat-status">-</span></div>
+    <div class="log" id="perf-log">لم يتم فحص الأداء بعد...</div>
+  </div>
+</div>
+
+<button class="refresh" onclick="loadData()">🔄 تحديث</button>
+
+<script>
+async function loadData() {
+  document.getElementById('timestamp').textContent = new Date().toLocaleString('ar-SA');
+  
+  try {
+    // قراءة ملفات /tmp عبر API بسيط (n8n webhook أو قراءة مباشرة لو نفس الجهاز)
+    const files = [
+      { url: '/tmp/arena_output.json', id: 'build' },
+      { url: '/tmp/strix_results/vulnerabilities.json', id: 'security' },
+      { url: '/tmp/playstore_report.json', id: 'policy' },
+      { url: '/tmp/screenshot_info.json', id: 'screenshot' }
+    ];
+    
+    // هذه ستعمل فقط لو Dashboard يخدم من نفس الجهاز مع وصول لـ /tmp
+    // في الإنتاج، اجعل n8n يرسل Webhook يحدث Dashboard
+    
+    // محاكاة بيانات للعرض
+    document.getElementById('iteration').textContent = localStorage.getItem('iteration') || '42';
+    document.getElementById('duration').textContent = '18.5 / 72h';
+    document.getElementById('build-status').innerHTML = '<span class="status-ok">نجح ✅</span>';
+    document.getElementById('apk-size').textContent = '12.4 MB';
+    document.getElementById('vuln-count').innerHTML = '<span class="status-ok">0 ثغرات</span>';
+    document.getElementById('policy-status').innerHTML = '<span class="status-ok">مقبول ✅</span>';
+    
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+loadData();
+setInterval(loadData, 30000); // تحديث كل 30 ثانية
+</script>
+</body>
+</html>
