@@ -1,0 +1,337 @@
+{
+  "name": "Arena.ai ONLY - Continuous Android Dev Team (No Other AI)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "id": "manual-trigger",
+      "name": "Start - Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "idea",
+              "name": "project_idea",
+              "value": "تطبيق تذكير شرب الماء: واجهة جميلة Jetpack Compose، يحسب احتياج المستخدم حسب الوزن، إشعارات كل ساعة، حفظ البيانات Room، رسم بياني يومي، Material3",
+              "type": "string"
+            },
+            {
+              "id": "duration",
+              "name": "duration_hours",
+              "value": 12,
+              "type": "number"
+            },
+            {
+              "id": "start",
+              "name": "start_time",
+              "value": "={{ $now }}",
+              "type": "string"
+            },
+            {
+              "id": "project_path",
+              "name": "project_path",
+              "value": "/home/node/android_projects/WaterApp",
+              "type": "string"
+            },
+            {
+              "id": "iteration",
+              "name": "iteration",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "session",
+              "name": "arena_session_file",
+              "value": "/tmp/arena_session.json",
+              "type": "string"
+            },
+            {
+              "id": "mode",
+              "name": "current_mode",
+              "value": "create",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-vars",
+      "name": "Set Variables (Arena Only)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.iteration }}",
+              "operation": "equal",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "is-first-iteration",
+      "name": "IF First Iteration?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=create --idea=\"{{$json.project_idea}}\" --session={{$json.arena_session_file}}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "arena-create",
+      "name": "Arena.ai CREATE Project",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [720, -200],
+      "notes": "يستدعي Arena.ai Agent Mode لإنشاء المشروع كاملاً - أول مرة فقط"
+    },
+    {
+      "parameters": {
+        "command": "=cat /tmp/arena_output.json",
+        "options": {}
+      },
+      "id": "read-arena-output",
+      "name": "Read Arena Output JSON",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [960, -200]
+    },
+    {
+      "parameters": {
+        "command": "=bash /home/node/scripts/sync-arena-to-android.sh /tmp/arena_output {{$json.project_path}}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "sync-files",
+      "name": "Sync Arena Files → Android Studio",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1200, 0]
+    },
+    {
+      "parameters": {
+        "command": "=bash /home/node/scripts/build-and-test.sh {{$json.project_path}}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "build",
+      "name": "Build (./gradlew assembleDebug)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1440, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.stdout }}",
+              "operation": "contains",
+              "value2": "BUILD_SUCCESS"
+            }
+          ]
+        }
+      },
+      "id": "check-build",
+      "name": "IF Build Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1680, 0]
+    },
+    {
+      "parameters": {
+        "command": "=cat /tmp/android_logs/build_full.log | tail -n 300\ncat /tmp/android_logs/error_summary.txt 2>/dev/null || echo \"No error summary\"",
+        "options": {}
+      },
+      "id": "get-error",
+      "name": "Get Build Error Log",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1680, 400]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=fix --error=\"{{ $json.stdout.replace(/\"/g, '\\\"').replace(/\\n/g, '\\\\n').slice(0, 7000) }}\" --session={{ $('Set Variables (Arena Only)').item.json.arena_session_file }}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "arena-fix",
+      "name": "Arena.ai FIX Build Error",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1920, 400],
+      "notes": "يرسل خطأ البناء لـ Arena.ai ليصلحه - نفس جلسة المحادثة"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ ($now.toMillis() - Date.parse($('Set Variables (Arena Only)').item.json.start_time)) / 3600000 }}",
+              "operation": "larger",
+              "value2": "={{ $('Set Variables (Arena Only)').item.json.duration_hours }}"
+            }
+          ]
+        }
+      },
+      "id": "check-duration",
+      "name": "IF Duration Finished?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1920, 0]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=improve --session={{ $('Set Variables (Arena Only)').item.json.arena_session_file }}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "arena-improve",
+      "name": "Arena.ai IMPROVE Project",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2160, -200],
+      "notes": "البناء نجح، اطلب من Arena.ai تحسين واحد فقط"
+    },
+    {
+      "parameters": {
+        "amount": 3,
+        "unit": "minutes"
+      },
+      "id": "wait",
+      "name": "Wait 3 Minutes",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [2400, -200]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=🏗️ Arena.ai ONLY - تقرير دورة {{$('Set Variables (Arena Only)').item.json.iteration}}\n\n📁 المشروع: {{$('Set Variables (Arena Only)').item.json.project_path}}\n🔄 الوضع: {{ $('Set Variables (Arena Only)').item.json.current_mode }}\n✅ البناء: {{ $json.stdout.includes('BUILD_SUCCESS') ? 'نجح ✅' : 'فشل ❌' }}\n⏱️ المدة: {{ Math.round(($now.toMillis() - Date.parse($('Set Variables (Arena Only)').item.json.start_time))/3600000*10)/10 }} / {{$('Set Variables (Arena Only)').item.json.duration_hours}} ساعة\n🔗 جلسة Arena: {{ $json.sessionUrl || '...' }}\n📦 ملفات: {{ $json.extractedFiles ? $json.extractedFiles.length : '0' }}\n\nالخطوة القادمة: {{ $json.stdout.includes('BUILD_SUCCESS') ? 'تحسين جديد' : 'إصلاح خطأ' }}",
+        "additionalFields": {}
+      },
+      "id": "telegram",
+      "name": "Telegram Reporter",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2400, 200],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-api",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": "arena-only-team",
+        "data": {
+          "project_idea": "={{ $('Set Variables (Arena Only)').item.json.project_idea }}",
+          "duration_hours": "={{ $('Set Variables (Arena Only)').item.json.duration_hours }}",
+          "start_time": "={{ $('Set Variables (Arena Only)').item.json.start_time }}",
+          "project_path": "={{ $('Set Variables (Arena Only)').item.json.project_path }}",
+          "iteration": "={{ $('Set Variables (Arena Only)').item.json.iteration + 1 }}",
+          "arena_session_file": "={{ $('Set Variables (Arena Only)').item.json.arena_session_file }}",
+          "current_mode": "={{ $('Build (./gradlew assembleDebug)').item.json.stdout.includes('BUILD_SUCCESS') ? 'improve' : 'fix' }}"
+        }
+      },
+      "id": "loop",
+      "name": "Loop Back - Continue",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [2640, 0]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=🎉 انتهى العمل - Arena.ai ONLY Team\n\n📁 المشروع: {{$('Set Variables (Arena Only)').item.json.project_path}}\n⏱️ المدة الكاملة: {{$('Set Variables (Arena Only)').item.json.duration_hours}} ساعة\n🔄 إجمالي الدورات: {{$('Set Variables (Arena Only)').item.json.iteration}}\n\n✅ المشروع جاهز في: {{$('Set Variables (Arena Only)').item.json.project_path}}\n📦 APK: {{$('Set Variables (Arena Only)').item.json.project_path}}/app/build/outputs/apk/debug/app-debug.apk\n\nشكراً لـ Arena.ai Agent Mode 🚀",
+        "additionalFields": {}
+      },
+      "id": "final-report",
+      "name": "Final Telegram Report",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2160, 400]
+    }
+  ],
+  "connections": {
+    "Start - Manual Trigger": {
+      "main": [[{ "node": "Set Variables (Arena Only)", "type": "main", "index": 0 }]]
+    },
+    "Set Variables (Arena Only)": {
+      "main": [[{ "node": "IF First Iteration?", "type": "main", "index": 0 }]]
+    },
+    "IF First Iteration?": {
+      "main": [
+        [{ "node": "Arena.ai CREATE Project", "type": "main", "index": 0 }],
+        [{ "node": "Arena.ai IMPROVE Project", "type": "main", "index": 0 }]
+      ]
+    },
+    "Arena.ai CREATE Project": {
+      "main": [[{ "node": "Read Arena Output JSON", "type": "main", "index": 0 }]]
+    },
+    "Read Arena Output JSON": {
+      "main": [[{ "node": "Sync Arena Files → Android Studio", "type": "main", "index": 0 }]]
+    },
+    "Sync Arena Files → Android Studio": {
+      "main": [[{ "node": "Build (./gradlew assembleDebug)", "type": "main", "index": 0 }]]
+    },
+    "Build (./gradlew assembleDebug)": {
+      "main": [[{ "node": "IF Build Success?", "type": "main", "index": 0 }]]
+    },
+    "IF Build Success?": {
+      "main": [
+        [{ "node": "IF Duration Finished?", "type": "main", "index": 0 }],
+        [{ "node": "Get Build Error Log", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Build Error Log": {
+      "main": [[{ "node": "Arena.ai FIX Build Error", "type": "main", "index": 0 }]]
+    },
+    "Arena.ai FIX Build Error": {
+      "main": [[{ "node": "Sync Arena Files → Android Studio", "type": "main", "index": 0 }]]
+    },
+    "IF Duration Finished?": {
+      "main": [
+        [{ "node": "Final Telegram Report", "type": "main", "index": 0 }],
+        [{ "node": "Arena.ai IMPROVE Project", "type": "main", "index": 0 }]
+      ]
+    },
+    "Arena.ai IMPROVE Project": {
+      "main": [[{ "node": "Wait 3 Minutes", "type": "main", "index": 0 }]]
+    },
+    "Wait 3 Minutes": {
+      "main": [[{ "node": "Sync Arena Files → Android Studio", "type": "main", "index": 0 }], [{ "node": "Telegram Reporter", "type": "main", "index": 0 }]]
+    },
+    "Telegram Reporter": {
+      "main": [[{ "node": "Loop Back - Continue", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "arena-only-orchestrator",
+    "notes": "100% Arena.ai Agent Mode only. No OpenAI, No Claude, No other AI. n8n is just orchestrator for file sync, build, loop control."
+  }
+}
