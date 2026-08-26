@@ -1,0 +1,432 @@
+{
+  "name": "Arena.ai ONLY + Strix Security - Continuous Android Team",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "id": "manual-trigger",
+      "name": "Start Project",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "idea",
+              "name": "project_idea",
+              "value": "تطبيق تذكير شرب الماء: Jetpack Compose + Room + إشعارات + رسم بياني + Material3",
+              "type": "string"
+            },
+            {
+              "id": "duration",
+              "name": "duration_hours",
+              "value": 24,
+              "type": "number"
+            },
+            {
+              "id": "start",
+              "name": "start_time",
+              "value": "={{ $now }}",
+              "type": "string"
+            },
+            {
+              "id": "project_path",
+              "name": "project_path",
+              "value": "/home/node/android_projects/WaterApp",
+              "type": "string"
+            },
+            {
+              "id": "iteration",
+              "name": "iteration",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "session",
+              "name": "arena_session_file",
+              "value": "/tmp/arena_session.json",
+              "type": "string"
+            },
+            {
+              "id": "security_enabled",
+              "name": "security_enabled",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-vars",
+      "name": "Set Variables - Arena Only + Strix",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.iteration }}",
+              "operation": "equal",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "is-first",
+      "name": "IF First Iteration?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=create --idea=\"{{$json.project_idea}}\" --session={{$json.arena_session_file}}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "arena-create",
+      "name": "Arena.ai CREATE App",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [720, -300]
+    },
+    {
+      "parameters": {
+        "command": "=bash /home/node/scripts/sync-arena-to-android.sh /tmp/arena_output {{$json.project_path}}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "sync",
+      "name": "Sync → Android Studio",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [960, 0]
+    },
+    {
+      "parameters": {
+        "command": "=bash /home/node/scripts/build-and-test.sh {{$json.project_path}}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "build",
+      "name": "Build APK (Gradle)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1200, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.stdout }}",
+              "operation": "contains",
+              "value2": "BUILD_SUCCESS"
+            }
+          ]
+        }
+      },
+      "id": "check-build",
+      "name": "IF Build Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1440, 0]
+    },
+    {
+      "parameters": {
+        "command": "=cat /tmp/android_logs/build_full.log | tail -n 400",
+        "options": {}
+      },
+      "id": "get-error",
+      "name": "Get Build Error",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1440, 400]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=fix --error=\"{{ $json.stdout.replace(/\"/g, '\\\"').slice(0, 7000) }}\" --session={{ $('Set Variables - Arena Only + Strix').item.json.arena_session_file }}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "arena-fix-build",
+      "name": "Arena.ai FIX Build",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1680, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $('Set Variables - Arena Only + Strix').item.json.security_enabled }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-security-enabled",
+      "name": "IF Security Scan Enabled?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1680, 0]
+    },
+    {
+      "parameters": {
+        "command": "=bash /home/node/scripts/strix-arena-runner.sh {{$json.project_path}} quick",
+        "options": {
+          "timeout": 1200000
+        }
+      },
+      "id": "strix-scan",
+      "name": "Strix Scan via Arena.ai Proxy",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1920, -200],
+      "notes": "يشغل Strix لكن كل ذكاءه من Arena.ai عبر Proxy - بدون API"
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=security --project={{$json.project_path}} --session={{$json.arena_session_file}} --idea=\"{{ $('Set Variables - Arena Only + Strix').item.json.project_path }}\"",
+        "options": {
+          "timeout": 900000
+        }
+      },
+      "id": "arena-security-audit",
+      "name": "Arena.ai Security Audit (OWASP)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1920, 200],
+      "notes": "Mode B: فحص أمني مباشر من Arena.ai بدون تشغيل Strix - أسرع"
+    },
+    {
+      "parameters": {
+        "command": "=cat /tmp/strix_results/vulnerabilities.json 2>/dev/null || cat /tmp/arena_output/full_response.txt | head -n 200",
+        "options": {}
+      },
+      "id": "read-vulns",
+      "name": "Read Vulnerabilities Report",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2160, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.stdout }}",
+              "operation": "contains",
+              "value2": "vulnerabilities"
+            },
+            {
+              "value1": "={{ $json.stdout }}",
+              "operation": "contains",
+              "value2": "M1"
+            }
+          ]
+        },
+        "options": {
+          "allMatch": false
+        }
+      },
+      "id": "has-vulns",
+      "name": "IF Has Vulnerabilities?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2400, 0]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=fix-security --error=\"{{ $json.stdout.replace(/\"/g, '\\\"').slice(0, 9000) }}\" --session={{ $('Set Variables - Arena Only + Strix').item.json.arena_session_file }}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "arena-fix-security",
+      "name": "Arena.ai FIX Security Issues",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2640, -200]
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-pure.js --mode=improve --session={{$json.arena_session_file}}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "arena-improve",
+      "name": "Arena.ai IMPROVE App",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [2640, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ ($now.toMillis() - Date.parse($('Set Variables - Arena Only + Strix').item.json.start_time)) / 3600000 }}",
+              "operation": "larger",
+              "value2": "={{ $('Set Variables - Arena Only + Strix').item.json.duration_hours }}"
+            }
+          ]
+        }
+      },
+      "id": "check-duration",
+      "name": "IF Duration Finished?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2880, 0]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "minutes"
+      },
+      "id": "wait",
+      "name": "Wait 5 Minutes",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [3120, 0]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=🔐 Arena + Strix Report - دورة {{$('Set Variables - Arena Only + Strix').item.json.iteration}}\n\n📁 المشروع: {{$('Set Variables - Arena Only + Strix').item.json.project_path}}\n✅ البناء: {{ $('Build APK (Gradle)').item.json.stdout.includes('BUILD_SUCCESS') ? 'نجح' : 'فشل' }}\n🔍 الفحص الأمني: {{ $json.stdout.includes('vulnerabilities') ? 'تم' : 'قيد الانتظار' }}\n⏱️ المدة: {{ Math.round(($now.toMillis() - Date.parse($('Set Variables - Arena Only + Strix').item.json.start_time))/3600000*10)/10 }} / {{$('Set Variables - Arena Only + Strix').item.json.duration_hours}}h\n\n📄 الثغرات:\n{{ $json.stdout.slice(0, 500) }}\n\n🔗 جلسة Arena: {{ $('Set Variables - Arena Only + Strix').item.json.arena_session_file }}",
+        "additionalFields": {}
+      },
+      "id": "telegram",
+      "name": "Telegram Report (Build + Security)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [3360, 0]
+    },
+    {
+      "parameters": {
+        "workflowId": "arena-strix-security-team",
+        "data": {
+          "project_idea": "={{ $('Set Variables - Arena Only + Strix').item.json.project_idea }}",
+          "duration_hours": "={{ $('Set Variables - Arena Only + Strix').item.json.duration_hours }}",
+          "start_time": "={{ $('Set Variables - Arena Only + Strix').item.json.start_time }}",
+          "project_path": "={{ $('Set Variables - Arena Only + Strix').item.json.project_path }}",
+          "iteration": "={{ $('Set Variables - Arena Only + Strix').item.json.iteration + 1 }}",
+          "arena_session_file": "={{ $('Set Variables - Arena Only + Strix').item.json.arena_session_file }}",
+          "security_enabled": "={{ $('Set Variables - Arena Only + Strix').item.json.security_enabled }}"
+        }
+      },
+      "id": "loop",
+      "name": "Loop Continue",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [3600, 0]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=🎉 انتهى - Arena.ai + Strix Team\n\n📁 المشروع: {{$('Set Variables - Arena Only + Strix').item.json.project_path}}\n⏱️ المدة: {{$('Set Variables - Arena Only + Strix').item.json.duration_hours}} ساعة\n🔄 الدورات: {{$('Set Variables - Arena Only + Strix').item.json.iteration}}\n🔐 الفحص الأمني: تم عبر Arena.ai فقط (بدون API)\n📦 APK: {{$('Set Variables - Arena Only + Strix').item.json.project_path}}/app/build/outputs/apk/debug/app-debug.apk\n\nكل الذكاء من Arena.ai Agent Mode فقط 🚀",
+        "additionalFields": {}
+      },
+      "id": "final",
+      "name": "Final Report",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [3120, 400]
+    }
+  ],
+  "connections": {
+    "Start Project": {
+      "main": [[{ "node": "Set Variables - Arena Only + Strix", "type": "main", "index": 0 }]]
+    },
+    "Set Variables - Arena Only + Strix": {
+      "main": [[{ "node": "IF First Iteration?", "type": "main", "index": 0 }]]
+    },
+    "IF First Iteration?": {
+      "main": [
+        [{ "node": "Arena.ai CREATE App", "type": "main", "index": 0 }],
+        [{ "node": "Sync → Android Studio", "type": "main", "index": 0 }]
+      ]
+    },
+    "Arena.ai CREATE App": {
+      "main": [[{ "node": "Sync → Android Studio", "type": "main", "index": 0 }]]
+    },
+    "Sync → Android Studio": {
+      "main": [[{ "node": "Build APK (Gradle)", "type": "main", "index": 0 }]]
+    },
+    "Build APK (Gradle)": {
+      "main": [[{ "node": "IF Build Success?", "type": "main", "index": 0 }]]
+    },
+    "IF Build Success?": {
+      "main": [
+        [{ "node": "IF Security Scan Enabled?", "type": "main", "index": 0 }],
+        [{ "node": "Get Build Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Get Build Error": {
+      "main": [[{ "node": "Arena.ai FIX Build", "type": "main", "index": 0 }]]
+    },
+    "Arena.ai FIX Build": {
+      "main": [[{ "node": "Sync → Android Studio", "type": "main", "index": 0 }]]
+    },
+    "IF Security Scan Enabled?": {
+      "main": [
+        [{ "node": "Strix Scan via Arena.ai Proxy", "type": "main", "index": 0 }],
+        [{ "node": "Arena.ai Security Audit (OWASP)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Strix Scan via Arena.ai Proxy": {
+      "main": [[{ "node": "Read Vulnerabilities Report", "type": "main", "index": 0 }]]
+    },
+    "Arena.ai Security Audit (OWASP)": {
+      "main": [[{ "node": "Read Vulnerabilities Report", "type": "main", "index": 0 }]]
+    },
+    "Read Vulnerabilities Report": {
+      "main": [[{ "node": "IF Has Vulnerabilities?", "type": "main", "index": 0 }]]
+    },
+    "IF Has Vulnerabilities?": {
+      "main": [
+        [{ "node": "Arena.ai FIX Security Issues", "type": "main", "index": 0 }],
+        [{ "node": "Arena.ai IMPROVE App", "type": "main", "index": 0 }]
+      ]
+    },
+    "Arena.ai FIX Security Issues": {
+      "main": [[{ "node": "Sync → Android Studio", "type": "main", "index": 0 }]]
+    },
+    "Arena.ai IMPROVE App": {
+      "main": [[{ "node": "IF Duration Finished?", "type": "main", "index": 0 }]]
+    },
+    "IF Duration Finished?": {
+      "main": [
+        [{ "node": "Final Report", "type": "main", "index": 0 }],
+        [{ "node": "Wait 5 Minutes", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait 5 Minutes": {
+      "main": [[{ "node": "Telegram Report (Build + Security)", "type": "main", "index": 0 }]]
+    },
+    "Telegram Report (Build + Security)": {
+      "main": [[{ "node": "Loop Continue", "type": "main", "index": 0 }]]
+    }
+  },
+  "meta": {
+    "instanceId": "arena-strix-only",
+    "notes": "100% Arena.ai Agent Mode ONLY. Strix uses Arena via OpenAI-compatible proxy at localhost:8080 - no API keys. Security + Build + Improve loop."
+  }
+}

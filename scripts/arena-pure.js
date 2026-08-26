@@ -1,16 +1,14 @@
 /**
  * ARENA.AI ONLY ORCHESTRATOR - 100% Arena.ai Agent Mode, No Other AI
+ * Updated to support Strix Security Mode
  * 
- * هذا السكريبت هو القلب - كل الذكاء من Arena.ai فقط
- * n8n يستدعيه فقط كـ منسق
- * 
- * الاستخدام:
- * node arena-pure.js --mode=create --idea="تطبيق تذكير ماء" --session=/tmp/arena_session.json
- * node arena-pure.js --mode=fix --error="...build log..." --session=/tmp/arena_session.json
- * node arena-pure.js --mode=improve --session=/tmp/arena_session.json
- * node arena-pure.js --mode=test --session=/tmp/arena_session.json
- * 
- * المتطلبات: npm install playwright
+ * Modes:
+ * --mode=create    إنشاء مشروع Android
+ * --mode=fix       إصلاح خطأ Build
+ * --mode=improve   تحسين
+ * --mode=test      كتابة اختبارات
+ * --mode=security  فحص أمني بمعايير OWASP Mobile Top 10 (Strix-like)
+ * --mode=fix-security إصلاح ثغرات أمنية
  */
 
 const { chromium } = require('playwright');
@@ -23,14 +21,14 @@ const getArg = (name) => {
   return arg ? arg.split('=').slice(1).join('=') : null;
 };
 
-const MODE = getArg('mode') || 'create'; // create, fix, improve, test
+const MODE = getArg('mode') || 'create';
 const IDEA = getArg('idea') || '';
 const ERROR_LOG = getArg('error') || '';
 const SESSION_FILE = getArg('session') || '/tmp/arena_session.json';
 const OUTPUT_DIR = '/tmp/arena_output';
-const AUTH_FILE = './arena-auth.json';
+const AUTH_FILE = path.join(__dirname, 'arena-auth.json');
+const PROJECT_PATH = getArg('project') || '';
 
-// قوالب البرومبتات - كل الذكاء هنا، لكن التنفيذ من Arena.ai فقط
 const PROMPTS = {
   create: (idea) => `
 أنت مطور Android خبير محترف. مهمتك بناء مشروع كامل الآن.
@@ -40,28 +38,22 @@ ${idea}
 
 المتطلبات الصارمة:
 1. أنشئ مشروع Android Studio كامل وهيكل صحيح:
-   - app/build.gradle.kts (أو build.gradle) مع كل dependencies
+   - app/build.gradle.kts مع كل dependencies
    - app/src/main/AndroidManifest.xml
    - app/src/main/java/com/example/app/MainActivity.kt
    - app/src/main/java/com/example/app/ui/...
-   - app/src/main/res/layout/, values/, etc
+   - app/src/main/res/layout/, values/
    - settings.gradle.kts + build.gradle.kts الرئيسي
    - gradle/wrapper/...
 
-2. التقنيات:
-   - Kotlin 100%، لا Java
-   - Jetpack Compose + Material3
-   - MVVM + ViewModel + StateFlow
-   - Room لو يحتاج حفظ بيانات
-   - Navigation Compose
+2. التقنيات: Kotlin 100% + Jetpack Compose + Material3 + MVVM + ViewModel + StateFlow + Room لو يحتاج
 
-3. الكود يجب أن يبني مباشرة بدون أخطاء: ./gradlew assembleDebug يجب أن ينجح
+3. الكود يجب أن يبني مباشرة: ./gradlew assembleDebug يجب أن ينجح
 
-4. في النهاية:
-   - اعرض كل ملف مع مساره الكامل مثل: // FILE: app/src/main/java/...
-   - ثم اضغط Download أو أنشئ ZIP بكل الملفات
+4. في النهاية اعرض كل ملف مع مساره: // FILE: app/src/main/java/...
+ثم اضغط Download أو أنشئ ZIP
 
-مهم: لا تشرح، لا تسأل، فقط ابنِ المشروع كاملاً الآن. ابدأ فوراً.
+مهم: لا تشرح، فقط ابنِ المشروع كاملاً الآن.
 `,
 
   fix: (errorLog) => `
@@ -72,47 +64,99 @@ ${errorLog.slice(0, 8000)}
 === END LOG ===
 
 المطلوب:
-1. حلل الخطأ بدقة - ما هو الملف المسبب؟ ما هي الـ dependency الناقصة؟
+1. حلل الخطأ بدقة
 2. أصلح الملف/الملفات فقط
-3. اعرض الملفات المصححة كاملة مع المسارات بنفس الصيغة: // FILE: path/to/file
-4. لا تغير باقي المشروع إلا إذا كان ضروري
-5. تأكد أن الإصلاح سيجعل ./gradlew assembleDebug ينجح
+3. اعرض الملفات المصححة كاملة مع المسارات: // FILE: path/to/file
+4. لا تغير باقي المشروع
 
-أصلح الآن، لا تشرح كثيراً، فقط اعرض الملفات المصححة.
+أصلح الآن.
 `,
 
   improve: () => `
-البناء نجح! المشروع يعمل حالياً.
+البناء نجح! المشروع يعمل.
 
-المطلوب: اختر تحسين واحد فقط وطبقه الآن (لا تكسر ما يعمل):
+المطلوب: اختر تحسين واحد فقط وطبقه (لا تكسر ما يعمل):
+- A) تحسين UI: Animation, Material3, Layout
+- B) تحسين أداء: Recomposition, remember, LazyColumn
+- C) Feature صغيرة: Dark Mode, Settings, Search
+- D) Refactor: تنظيم الكود
+- E) حفظ بيانات: Room, DataStore
 
-اختر واحد من:
-- A) تحسين UI: أضف Animation, تحسين ألوان Material3, تحسين Layout
-- B) تحسين أداء: تحسين Recomposition في Compose, استخدام remember, LazyColumn optimization
-- C) إضافة Feature صغيرة مفيدة: مثلاً Dark Mode, Settings Screen, Search, Filter
-- D) Refactor: تنظيم الكود, فصل Composables, تحسين ViewModel
-- E) إضافة حفظ بيانات: تحسين Room, DataStore
-
-القواعد:
-- تحسين واحد فقط في كل مرة
-- اعرض الملفات المعدلة فقط مع المسارات
-- تأكد أن المشروع لا يزال يبني بنجاح بعد التحسين
-
+اعرض الملفات المعدلة فقط مع المسارات.
 نفذ تحسين واحد الآن.
 `,
 
   test: () => `
 المشروع يبني بنجاح. الآن مهمة الاختبار:
-
 1. اكتب Unit Tests للـ ViewModel
 2. اكتب Compose UI Test للشاشة الرئيسية
-3. تأكد أن التطبيق لا يعمل Crash عند الفتح
+3. تأكد أن التطبيق لا يعمل Crash
 
-اعرض ملفات الاختبار مع المسارات:
-- app/src/test/java/...
-- app/src/androidTest/java/...
+اعرض ملفات الاختبار مع المسارات.
+`,
 
-ثم اقترح كيف نتأكد أن التطبيق يعمل.
+  security: (projectPath) => `
+أنت الآن Strix - خبير اختبار اختراق تطبيقات Android. مهمتك فحص أمني شامل.
+
+المشروع: ${projectPath || 'مشروع Android في المجلد الحالي'}
+
+افحص الكود بمعايير OWASP Mobile Top 10:
+
+M1: Improper Credential Usage - ابحث عن API Keys, Secrets مكتوبة في الكود
+M2: Supply Chain - مكتبات قديمة فيها ثغرات
+M3: Auth/AuthZ - IDOR, Auth Bypass, Hardcoded credentials
+M4: Input/Output Validation - SQL Injection, XSS, Intent Injection
+M5: Insecure Communication - HTTP بدل HTTPS, Certificate pinning مفقود
+M6: Privacy Controls - تسريب بيانات حساسة في Log
+M7: Binary Protections - Debuggable true, Backup true
+M8: Misconfiguration - Permissions زائدة (READ_SMS, etc)
+M9: Insecure Data Storage - SharedPreferences بدون تشفير, SQLite غير مشفر
+M10: Insufficient Cryptography - MD5, SHA1, Random ضعيف, Hardcoded IV
+
+المطلوب:
+1. اقرأ كل ملفات المشروع (ابحث عن *.kt, *.java, *.xml, *.gradle)
+2. لكل ثغرة: اذكر الملف، السطر، النوع، الخطورة (high/medium/low)، و PoC أو مثال
+3. في النهاية أنتج تقرير JSON بهذا الشكل:
+{
+  "vulnerabilities": [
+    {
+      "id": "M1-001",
+      "type": "Hardcoded API Key",
+      "owasp": "M1",
+      "severity": "high",
+      "file": "app/src/main/java/.../MainActivity.kt",
+      "line": 25,
+      "description": "...",
+      "poc": "كود يثبت الثغرة",
+      "fix": "كيف تصلحها"
+    }
+  ]
+}
+
+4. اعرض أيضاً الملفات المصححة لو أمكن: // FILE: path
+
+ابدأ الفحص الأمني الآن، كن دقيقاً كـ Strix الحقيقي.
+`,
+
+  fixSecurity: (vulnReport) => `
+وجد فحص Strix الأمني هذه الثغرات في تطبيق Android:
+
+=== VULNERABILITY REPORT ===
+${vulnReport.slice(0, 10000)}
+=== END REPORT ===
+
+المطلوب:
+1. أصلح كل ثغرة مذكورة
+2. اعرض الملفات المصححة كاملة مع المسارات: // FILE: path
+3. استخدم أفضل الممارسات:
+   - API Keys → BuildConfig أو local.properties
+   - SharedPreferences → EncryptedSharedPreferences
+   - HTTP → HTTPS + Certificate Pinning
+   - Permissions → أزل غير الضروري
+   - Log → أزل Log.d التي تطبع بيانات حساسة
+   - Debuggable → false في release
+
+أصلح الثغرات الأمنية الآن.
 `
 };
 
@@ -148,6 +192,8 @@ async function runArena() {
   else if (MODE === 'fix') prompt = PROMPTS.fix(ERROR_LOG);
   else if (MODE === 'improve') prompt = PROMPTS.improve();
   else if (MODE === 'test') prompt = PROMPTS.test();
+  else if (MODE === 'security') prompt = PROMPTS.security(PROJECT_PATH || IDEA);
+  else if (MODE === 'fix-security') prompt = PROMPTS.fixSecurity(ERROR_LOG);
   else throw new Error(`Unknown mode: ${MODE}`);
 
   console.log(`\n=== ARENA PURE MODE: ${MODE.toUpperCase()} ===`);
@@ -155,7 +201,7 @@ async function runArena() {
   console.log(`Session URL: ${session.url || 'NEW SESSION'}\n`);
 
   const browser = await chromium.launch({
-    headless: false, // اجعله true بعد ما تتأكد أنه يعمل
+    headless: false,
     args: ['--no-sandbox', '--disable-blink-features=AutomationControlled']
   });
 
@@ -166,7 +212,6 @@ async function runArena() {
 
   const page = await context.newPage();
 
-  // اعتراض التحميلات
   let downloadedFiles = [];
   page.on('download', async (download) => {
     const fileName = download.suggestedFilename();
@@ -178,24 +223,19 @@ async function runArena() {
 
   try {
     if (session.url) {
-      // أكمل نفس المحادثة
       console.log(`Continuing existing conversation: ${session.url}`);
       await page.goto(session.url, { waitUntil: 'networkidle', timeout: 60000 });
       await page.waitForTimeout(3000);
     } else {
-      // جلسة جديدة
       console.log('Starting new Arena Agent Mode session...');
       await page.goto('https://arena.ai/agent', { waitUntil: 'networkidle', timeout: 60000 });
       await page.waitForTimeout(3000);
-      
-      // احفظ URL الجديد بعد التوجيه
       const currentUrl = page.url();
       if (currentUrl.includes('/agent')) {
         await saveSession(currentUrl);
       }
     }
 
-    // ابحث عن حقل الإدخال - Arena.ai يغير تصميمه، لذلك نجرب عدة محددات
     const inputSelectors = [
       'textarea[placeholder*="Ask"]',
       'textarea[placeholder*="message"]',
@@ -220,14 +260,12 @@ async function runArena() {
     }
 
     if (!inputFound) {
-      throw new Error('Could not find Arena.ai input field - selectors need update. Please check arena.ai HTML');
+      throw new Error('Could not find Arena.ai input field');
     }
 
-    // أرسل
     await page.waitForTimeout(1000);
     await page.keyboard.press('Enter');
     
-    // جرب زر الإرسال أيضاً
     const sendSelectors = ['button:has-text("Send")', 'button[aria-label="Send"]', 'button:has-text("Run")', '[data-testid="send"]'];
     for (const sel of sendSelectors) {
       try {
@@ -239,43 +277,31 @@ async function runArena() {
       } catch (e) {}
     }
 
-    console.log('Prompt sent, waiting for Arena.ai Agent to complete... This may take 2-5 minutes');
+    console.log('Prompt sent, waiting for Arena.ai Agent to complete...');
 
-    // انتظر حتى ينتهي الوكيل - نراقب اختفاء مؤشر التحميل أو ظهور Download
-    // Arena.ai يعرض خطوات التنفيذ، ننتظر حتى تظهر رسالة نهائية
     let completed = false;
-    const maxWaitMinutes = 10;
+    const maxWaitMinutes = MODE === 'security' ? 15 : 10;
     const startTime = Date.now();
     
     while (!completed && (Date.now() - startTime) < maxWaitMinutes * 60 * 1000) {
-      await page.waitForTimeout(10000); // تحقق كل 10 ثواني
-      
+      await page.waitForTimeout(10000);
       const pageText = await page.locator('body').innerText().catch(() => '');
       
-      // علامات انتهاء
-      if (pageText.includes('Download') || pageText.includes('completed') || pageText.includes('FILE:')) {
-        // انتظر 5 ثواني إضافية للتأكد أنه انتهى فعلاً
+      if (pageText.includes('Download') || pageText.includes('completed') || pageText.includes('FILE:') || pageText.includes('vulnerabilities')) {
         await page.waitForTimeout(5000);
         const newText = await page.locator('body').innerText().catch(() => '');
-        if (newText.length > pageText.length - 100) { // لم يتغير كثيراً = انتهى
+        if (newText.length > pageText.length - 100) {
           completed = true;
         }
-      }
-      
-      // لو ظهر خطأ في الصفحة
-      if (pageText.toLowerCase().includes('error') && pageText.toLowerCase().includes('failed')) {
-        console.log('Detected possible error in page, but continuing...');
       }
       
       const elapsed = Math.round((Date.now() - startTime)/1000);
       console.log(`... still working (${elapsed}s elapsed)`);
     }
 
-    // اسحب كل النص
     await page.waitForTimeout(2000);
     const fullContent = await page.evaluate(() => document.body.innerText);
     
-    // ابحث عن الملفات في النص (التي تبدأ بـ // FILE:)
     const fileMatches = [...fullContent.matchAll(/\/\/ FILE:\s*([^\n]+)\n([\s\S]*?)(?=\/\/ FILE:|$)/g)];
     
     let extractedFiles = [];
@@ -291,17 +317,15 @@ async function runArena() {
       }
     }
 
-    // جرب تحميل الملفات لو فيه زر Download
     try {
       const downloadBtn = page.locator('a:has-text("Download"), button:has-text("Download"), a[download]').first();
       if (await downloadBtn.count() > 0) {
         console.log('Found Download button, clicking...');
         await downloadBtn.click();
-        await page.waitForTimeout(5000); // انتظر التحميل
+        await page.waitForTimeout(5000);
       }
     } catch (e) {}
 
-    // احفظ النتيجة النهائية
     const result = {
       mode: MODE,
       success: true,
@@ -311,21 +335,29 @@ async function runArena() {
       downloadedFiles: downloadedFiles,
       outputDir: OUTPUT_DIR,
       timestamp: new Date().toISOString(),
-      fullText: fullContent.slice(0, 50000) // أول 50k حرف
+      fullText: fullContent.slice(0, 50000)
     };
 
     fs.writeFileSync('/tmp/arena_output.json', JSON.stringify(result, null, 2));
     fs.writeFileSync(path.join(OUTPUT_DIR, 'full_response.txt'), fullContent);
 
-    // حدث الـ session URL لو تغير
+    if (MODE.includes('security')) {
+      fs.writeFileSync('/tmp/strix_results/vulnerabilities.json', JSON.stringify({
+        scan_mode: 'arena-security-audit',
+        mode: MODE,
+        timestamp: new Date().toISOString(),
+        raw_report: fullContent.slice(0, 20000),
+        extracted_files: extractedFiles.length
+      }, null, 2));
+    }
+
     await saveSession(page.url());
     await context.storageState({ path: AUTH_FILE });
 
-    console.log(`\n=== ARENA DONE ===`);
+    console.log(`\n=== ARENA DONE (${MODE}) ===`);
     console.log(`Extracted files: ${extractedFiles.length}`);
     console.log(`Downloaded files: ${downloadedFiles.length}`);
     console.log(`Output dir: ${OUTPUT_DIR}`);
-    console.log(JSON.stringify(result, null, 2));
 
     await browser.close();
     return result;

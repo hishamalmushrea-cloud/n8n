@@ -1,5 +1,4 @@
-# n8n AI Dev Team - Self-Hosted Stack
-# يشغل: n8n + Postgres + Redis (Queue Mode) + Browserless (للتحكم في Arena.ai)
+# n8n + Arena.ai ONLY + Strix Security Team - 100% No API Keys
 version: '3.8'
 
 services:
@@ -35,6 +34,41 @@ services:
       - "3000:3000"
     shm_size: 2gb
 
+  # Arena.ai → OpenAI Proxy - يجعل Strix يكلم Arena.ai بدون API
+  arena-proxy:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install express playwright && npx playwright install chromium --with-deps && node arena-openai-proxy.js"
+    ports:
+      - "8080:8080"
+    environment:
+      - PROXY_PORT=8080
+      - ARENA_SESSION_FILE=/tmp/arena_session.json
+    volumes:
+      - ./scripts:/app
+      - /tmp:/tmp
+      - arena_auth:/root/.cache
+    restart: unless-stopped
+
+  # Strix Security Scanner - يعتمد على Arena Proxy
+  strix:
+    image: python:3.11-slim
+    working_dir: /app
+    command: sh -c "pip install strix-agent && tail -f /dev/null"
+    environment:
+      - OPENAI_API_KEY=sk-arena-dummy
+      - OPENAI_BASE_URL=http://arena-proxy:8080/v1
+      - STRIX_LLM=openai
+      - LLM_API_KEY=sk-arena-dummy
+    volumes:
+      - ./scripts:/app/scripts
+      - ${ANDROID_PROJECTS_PATH:-./android_projects}:/app/projects
+      - /tmp:/tmp
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - arena-proxy
+    # Strix يحتاج Docker-in-Docker للفحص الديناميكي
+
   n8n:
     image: n8nio/n8n:latest
     ports:
@@ -55,22 +89,24 @@ services:
       - NODE_ENV=production
       - WEBHOOK_URL=http://localhost:5678
       - GENERIC_TIMEZONE=Asia/Riyadh
-      # Queue Mode for long-running workflows
       - EXECUTIONS_MODE=queue
       - QUEUE_BULL_REDIS_HOST=redis
       - QUEUE_BULL_REDIS_PORT=6379
       - N8N_ENCRYPTION_KEY=change_this_to_random_32_chars_string
-      # Allow long workflows (1 week = 168h)
       - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
       - EXECUTIONS_TIMEOUT=604800
       - EXECUTIONS_TIMEOUT_MAX=604800
+      # Strix + Arena Proxy URLs
+      - OPENAI_BASE_URL=http://arena-proxy:8080/v1
+      - ARENA_PROXY_URL=http://arena-proxy:8080
     volumes:
       - n8n_data:/home/node/.n8n
       - ./workflows:/home/node/workflows
       - ./scripts:/home/node/scripts
-      # مهم: اربط مجلد مشاريع اندرويد ستوديو
-      - ${ANDROID_PROJECTS_PATH:-C:/Users/YourUser/AndroidStudioProjects}:/home/node/android_projects
+      - ${ANDROID_PROJECTS_PATH:-./android_projects}:/home/node/android_projects
       - ${ANDROID_SDK_PATH:-C:/Users/YourUser/AppData/Local/Android/Sdk}:/home/node/android_sdk
+      - /tmp:/tmp
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,9 +114,12 @@ services:
         condition: service_started
       browserless:
         condition: service_started
+      arena-proxy:
+        condition: service_started
     restart: unless-stopped
 
 volumes:
   n8n_data:
   postgres_data:
   redis_data:
+  arena_auth:
