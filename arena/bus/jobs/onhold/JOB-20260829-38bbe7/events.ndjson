@@ -1,2 +1,0 @@
-{"ts":"2026-08-29T19:50:38.058Z","actor":"cli","type":"submit","msg":"queued from cli","actions":["=passive","sast","active","exploit-validation"],"authorized":false}
-{"ts":"2026-08-29T19:50:38.058Z","actor":"cli","type":"policy-block","msg":"target not in engagement allowlist: =http://localhost:8090"}
