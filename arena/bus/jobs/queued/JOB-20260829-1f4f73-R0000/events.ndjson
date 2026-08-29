@@ -1,2 +1,0 @@
-{"ts":"2026-08-29T19:59:20.003Z","actor":"cli","type":"retest-seed","msg":"10 نتيجة منسوخة من JOB-20260829-1f4f73 كقائمة تحقّق"}
-{"ts":"2026-08-29T19:59:20.003Z","actor":"cli","type":"submit","msg":"queued from cli","actions":["passive","sast","active","exploit-validation"],"authorized":true}

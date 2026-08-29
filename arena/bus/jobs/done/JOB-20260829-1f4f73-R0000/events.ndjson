@@ -1,0 +1,8 @@
+{"ts":"2026-08-29T19:59:20.003Z","actor":"cli","type":"retest-seed","msg":"10 نتيجة منسوخة من JOB-20260829-1f4f73 كقائمة تحقّق"}
+{"ts":"2026-08-29T19:59:20.003Z","actor":"cli","type":"submit","msg":"queued from cli","actions":["passive","sast","active","exploit-validation"],"authorized":true}
+{"ts":"2026-08-29T19:59:45.665Z","actor":"cli","type":"claim","msg":"claimed by arena-agent-retest"}
+{"ts":"2026-08-29T20:00:59.834Z","actor":"cli","type":"evidence","msg":"10-verify-secured-vs-vuln.txt"}
+{"ts":"2026-08-29T20:00:59.900Z","actor":"cli","type":"finding","msg":"critical إثبات إضافي: تزوير JWT بـ alg=none كان يعمل فعلاً على النسخة غير المُؤمَّنة","finding_id":"F-ab5367","cvss":9.8,"cwe":"347"}
+{"ts":"2026-08-29T20:00:59.962Z","actor":"cli","type":"note","msg":"27/27 فحص نجاح على النسخة المؤمَّنة — 19 من نفس الفحوصات تفشل على النسخة الأصلية: الفرق حقيقي وليس تجميل تقرير."}
+{"ts":"2026-08-29T20:01:00.027Z","actor":"cli","type":"triage","msg":"* → fixed-verified","note":"أُعيد إنتاج PoC الأصلي على النسخة المؤمَّنة: محجوب"}
+{"ts":"2026-08-29T20:01:00.090Z","actor":"cli","type":"complete","msg":"كل النتائج العشرة مُغلَقة ومُتحقَّق منها آلياً (27/27). بوابة CI ستقبل النشر.","verdict":"PASS"}

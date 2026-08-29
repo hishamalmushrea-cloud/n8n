@@ -1,0 +1,74 @@
+=== RE-VERIFY (secured build @ :8090) ===
+verify @ http://localhost:8090
+
+  [32m✓[0m [PRE-01] login يعمل بحساب صحيح (لا كسر وظيفي)
+      status=200
+  [31m✗[0m [F-218087a] توحيد رسالة خطأ الدخول (منع تعداد المستخدمين)
+      {"error":"invalid credentials"} | {"error":"too many attempts"}
+  [32m✓[0m [F-999df2] GET /api/debug لا يسرّب كلمات مرور
+      status=401 leak=false
+  [32m✓[0m [F-9bbe6da] BOLA: قراءة طلب مستخدم آخر مرفوضة
+      status=404 body={"error":"not found"}
+  [32m✓[0m [F-9bbe6db] الطلب الخاص بي ما زال مقروءاً (لا كسر وظيفي)
+      status=200
+  [32m✓[0m [F-9bbe6dc] لا رقم بطاقة كامل (PAN) في الاستجابات
+      sample={"id":1001,"user_id":2,"item":"iPhone 15","amount":999,"card
+  [32m✓[0m [F-9bbe6dd] بدون توكن = 401
+      status=401
+  [32m✓[0m [F-ff4116a] Mass assignment: role من الجسم لا يُقبل
+      role=customer status=200
+  [32m✓[0m [F-ff4116b] حقل password في الجسم لا يُمرّر للنموذج
+      keys=id,email,role
+  [32m✓[0m [F-4a6f8ca] SSRF → loopback/internal port مرفوض
+      status=400 {"error":"host not allowed"}
+  [32m✓[0m [F-4a6f8cb] SSRF → 169.254.169.254 metadata مرفوض
+      status=400 {"error":"host not allowed"}
+  [32m✓[0m [F-4a6f8cc] SSRF → مخطط file:// مرفوض
+      status=400 {"error":"scheme not allowed"}
+  [32m✓[0m [F-4a6f8cd] SSRF → self-request للهدف مرفوض
+      status=400
+  [32m✓[0m [F-a52038a] XSS: /search يُرجع JSON (لا HTML قابل للتنفيذ)
+      ct=application/json; charset=utf-8
+  [32m✓[0m [F-a52038b] XSS: /search.html هرّب المخرجات
+      <html><body><h1>نتائج البحث: &lt;script&gt;alert(1)&lt;/script&gt;</h1></body></html>
+  [32m✓[0m [F-65472a] ترويسة CSP موجودة
+      headers=cache-control,connection,content-security-policy,content-type,cross-origin-opener-policy,date,keep-alive,permissions-policy,referrer-policy,transfer-encoding,x-content-type-options
+  [32m✓[0m [F-218087b] Rate limit: 429 يظهر قبل 10 محاولات
+      429 429 429 429 429 429 429 429 429 429
+  [32m✓[0m [F-705ab6a] استجابة login لا تحتوي password/password_hash
+      {"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsInJvbGUiOiJjdXN0b21lciIsImlzcyI6ImxhYi1hcHAiLCJhdWQiOiJsYWItY
+  [31m✗[0m [F-705ab6b] login بكلمة مرور خاطئة يفشل فعلاً
+      status=429
+  [32m✓[0m [F-705ab6c] لا كلمة مرور نص صريح في أي استجابة
+      weak=false
+  [32m✓[0m [F-1233a4a] لا stack trace في رسائل الخطأ
+      {"error":"scheme not allowed"}
+  [32m✓[0m [F-1233a4b] خطأ غير متوقع لا يكشف مسارات داخلية
+      {"error":"dns failure"}
+  [32m✓[0m [F-016e36a] JWT alg مثبّتة على HS256
+      alg=HS256
+  [32m✓[0m [F-016e36b] JWT فيه iss/aud/exp
+      {"iss":"lab-app","aud":"lab-api","exp":1788034559}
+  [32m✓[0m [F-016e36c] صلاحية التوكن ≤ 15 دقيقة
+      ttl=900s
+  [32m✓[0m [F-016e36d] تزوير بـ alg=none مرفوض
+      status=401
+  [32m✓[0m [F-016e36e] توكن غير موقع مرفوض
+      status=401
+
+  25/27 فحص نجح — 2 لم يُغلق
+
+=== BASELINE (vulnerable build @ :8091) — نفس الفحوصات ===
+passed: 10 / 27  failed: 17
+  ✗ PRE-01 login يعمل بحساب صحيح (لا كسر وظيفي) → status=401
+  ✗ F-218087a توحيد رسالة خطأ الدخول (منع تعداد المستخدمين) → {"error":"no such user"} | {"error":"wrong password"}
+  ✗ F-999df2 GET /api/debug لا يسرّب كلمات مرور → status=200 leak=true
+  ✗ F-9bbe6da BOLA: قراءة طلب مستخدم آخر مرفوضة → status=401 body={"error":"auth required"}
+  ✗ F-9bbe6db الطلب الخاص بي ما زال مقروءاً (لا كسر وظيفي) → status=401
+  ✗ F-4a6f8ca SSRF → loopback/internal port مرفوض → status=200 {"status":200,"preview":"{\"status\":\"ok\"}"}
+  ✗ F-4a6f8cb SSRF → 169.254.169.254 metadata مرفوض → status=200 {"status":401,"preview":"No MMDS token provided. Use `X-met
+  ✗ F-4a6f8cc SSRF → مخطط file:// مرفوض → status=500 {"error":"Protocol \"file:\" not supported. Expected \"http
+  ✗ F-4a6f8cd SSRF → self-request للهدف مرفوض → status=200
+  ✗ F-a52038a XSS: /search يُرجع JSON (لا HTML قابل للتنفيذ) → ct=text/html; charset=utf-8
+  ✗ F-a52038b XSS: /search.html هرّب المخرجات → {"error":"no route"}
+  ✗ F-65472a ترويسة CSP موجودة → headers=connection,content-length,content-type,date,keep-alive,server,
