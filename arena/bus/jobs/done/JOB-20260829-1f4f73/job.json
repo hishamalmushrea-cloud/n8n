@@ -17,7 +17,7 @@
   "priority": "P2",
   "state": "done",
   "created_at": "2026-08-29T19:52:28.336Z",
-  "updated_at": "2026-08-29T19:54:43.442Z",
+  "updated_at": "2026-08-29T20:01:12.697Z",
   "requested_by": "n8n",
   "notify_url": null,
   "context": {},
@@ -25,7 +25,7 @@
   "result": {
     "verdict": "FAIL",
     "score": 15,
-    "summary": "10 نتائج مؤكَّدة PoC: حرجة واحدة (كشف كلمات مرور)، 3 عالية (IDOR/تصعيد صلاحيات/SSRF). الإصلاح مقترح بـ patches.",
+    "summary": "10 finding(s), 4 blocking",
     "counts": {
       "total": 10,
       "by_severity": {
@@ -39,6 +39,6 @@
       "blocking": 4
     },
     "report": "report.md",
-    "finished_at": "2026-08-29T19:54:43.442Z"
+    "finished_at": "2026-08-29T20:01:12.697Z"
   }
 }

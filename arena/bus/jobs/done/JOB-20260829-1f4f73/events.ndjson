@@ -15,3 +15,4 @@
 {"ts":"2026-08-29T19:54:43.308Z","actor":"cli","type":"evidence","msg":"03-ssrf-xss.txt"}
 {"ts":"2026-08-29T19:54:43.373Z","actor":"cli","type":"note","msg":"فحص كامل (recon + authz + injection + SSRF + headers) مع إثبات مباشر من الهدف؛ الأدلة منقّاة من التوكنات آلياً"}
 {"ts":"2026-08-29T19:54:43.442Z","actor":"cli","type":"complete","msg":"10 نتائج مؤكَّدة PoC: حرجة واحدة (كشف كلمات مرور)، 3 عالية (IDOR/تصعيد صلاحيات/SSRF). الإصلاح مقترح بـ patches.","verdict":"FAIL"}
+{"ts":"2026-08-29T20:01:12.697Z","actor":"cli","type":"complete","msg":"10 finding(s), 4 blocking","verdict":"FAIL"}
