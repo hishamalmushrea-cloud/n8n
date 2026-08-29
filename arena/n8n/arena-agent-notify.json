@@ -1,0 +1,180 @@
+{
+  "name": "Arena → n8n — إيقاظ عند انتهاء الوكيل",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "arena-agent-notify",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "189b3f78-de2d-4a4a-955c-9177761d1fc8",
+      "name": "arena-agent-notify (POST)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "6f70d82d-b877-4b8d-b43f-0a8934c07ed0"
+    },
+    {
+      "parameters": {
+        "command": "=ARENA_BUS=/home/user/n8n/arena/bus /home/user/n8n/arena/bin/arena status \"{{ $json.body.id }}\" --json",
+        "executeOnce": false
+      },
+      "id": "d5927cf5-9654-44ed-b8d1-5849b443fbf4",
+      "name": "قراءة المهمة",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1.1,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1b49d47e-462d-4884-937f-85b4dada6a5a",
+              "leftValue": "={{ JSON.parse($json.stdout).result.verdict }}",
+              "rightValue": "FAIL",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8de0be0c-2192-4c65-ad59-355cdef97907",
+      "name": "FAIL؟",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "80d3bb9b-1e5d-4383-9a02-943597a95e4f",
+      "name": "تنبيه فوري — ضع هنا Telegram/Email/Slack",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        620,
+        120
+      ],
+      "notes": "arena show <id> --json --report يعطيك التقرير كاملاً"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true, \"alerted\": true } }}",
+        "options": {}
+      },
+      "id": "0de18289-dd4e-46aa-b84b-5c5c0209121e",
+      "name": "Respond: alerted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        840,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true, \"notified\": true } }}",
+        "options": {}
+      },
+      "id": "46cb8a3c-a20d-451a-b0ac-6d11c82d465c",
+      "name": "Respond: ok",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        620,
+        -120
+      ]
+    }
+  ],
+  "connections": {
+    "arena-agent-notify (POST)": {
+      "main": [
+        [
+          {
+            "node": "قراءة المهمة",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "قراءة المهمة": {
+      "main": [
+        [
+          {
+            "node": "FAIL؟",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FAIL؟": {
+      "main": [
+        [
+          {
+            "node": "تنبيه فوري — ضع هنا Telegram/Email/Slack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond: ok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "تنبيه فوري — ضع هنا Telegram/Email/Slack": {
+      "main": [
+        [
+          {
+            "node": "Respond: alerted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "Asia/Aden",
+    "saveExecutionProgress": true
+  },
+  "versionId": "27297b83-3f12-4c57-b431-52cc3b62e66d",
+  "id": "arena-98564535",
+  "meta": {
+    "instanceId": "arena",
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

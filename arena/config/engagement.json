@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "owner": "hisham",
+  "_why": "ملف التفويض (Rules of Engagement). الفحص الأمني بدون تسجيل صعي = مخالفة قانونية. arena يرفض أي هدف غير مذكور هنا.",
+  "_actions_legend": {
+    "passive": "قراءة ترويسات/إعدادات/معلومات مكشوفة — بلا هجمات",
+    "sast": "تحليل الكود الساكن (يتطلب kind=code)",
+    "active": "طلبات اختبار حقيقية على الهدف (authz, injection, xss...)",
+    "exploit-validation": "كتابة/تشغيل PoC لإثبات الثغرة فقط — لا تجاوز",
+    "fuzz": "تنضيج/تخمين مدخلات — استهلاك عالٍ، استخدمه على بيئاتك فقط",
+    "osint": "جمع معلومات من مصادر علنية عن نطاقك",
+    "compliance-evidence": "التقاط أدلة للامتثال (ISO/SOC2/PCI)"
+  },
+  "allowlist": [
+    {
+      "target": "http://localhost:8090",
+      "kind": "url",
+      "actions": ["passive", "sast", "active", "exploit-validation", "fuzz"],
+      "note": "lab target — متعمد الضعف، محلي، ملكي",
+      "credentials_note": "ali@lab.test / sara@lab.test (lab only)"
+    },
+    {
+      "target": "http://127.0.0.1:8090",
+      "kind": "url",
+      "actions": ["passive", "sast", "active", "exploit-validation"],
+      "note": "alias للمعمل"
+    },
+    {
+      "target": "/home/user/n8n/arena/lab/vuln-app",
+      "kind": "code",
+      "actions": ["passive", "sast"],
+      "note": "مصدر تطبيق المعمل — SAST فقط"
+    },
+    {
+      "target": "https://staging.myapp.com",
+      "kind": "url",
+      "actions": ["passive"],
+      "note": "مثال: بيئة تجهيز أملكها — فحص سلبي فقط حتى تقرّر غير ذلك"
+    }
+  ],
+  "forbidden": [
+    "ddos",
+    "data-destruction",
+    "destructive-sql",
+    "mass-credential-stuffing",
+    "social-engineering",
+    "phishing",
+    "access-to-third-party-tenants"
+  ],
+  "requireApprovalFor": ["exploit-validation", "fuzz"],
+  "redact": ["Authorization", "Cookie", "Set-Cookie", "X-Api-Key"],
+  "maxDurationSeconds": 3600,
+  "maxConcurrentJobs": 1,
+  "retest": { "auto": true, "maxRounds": 3 },
+  "reporting": { "language": "ar", "cvss_version": "3.1", "attach_evidence": true }
+}

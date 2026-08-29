@@ -1,6 +1,0 @@
-{"ts":"2026-08-29T19:33:02.959Z","actor":"cli","type":"submit","msg":"queued from cli","actions":["passive","active"],"authorized":true}
-{"ts":"2026-08-29T19:33:12.981Z","actor":"cli","type":"claim","msg":"claimed by arena-agent"}
-{"ts":"2026-08-29T19:33:13.061Z","actor":"cli","type":"finding","msg":"high IDOR في /api/orders/{id} يسمح بقراءة طلبات أي مستخدم","finding_id":"F-de7103","cvss":7.5,"cwe":"306"}
-{"ts":"2026-08-29T19:33:13.153Z","actor":"cli","type":"evidence","msg":"poc-idor.txt"}
-{"ts":"2026-08-29T19:33:13.215Z","actor":"cli","type":"note","msg":"تم التحقق من الثغرة يدوياً + PoC"}
-{"ts":"2026-08-29T19:33:13.362Z","actor":"cli","type":"complete","msg":"فحص سريع: ثغرة وصول واحدة مؤكدة","verdict":"FAIL"}

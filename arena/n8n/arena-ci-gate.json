@@ -1,0 +1,184 @@
+{
+  "name": "Arena → CI — بوابة أمان قبل النشر",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "arena-ci-gate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "e8d0d6c8-8ca7-4547-92dd-23d67fc58233",
+      "name": "PR / commit hook (POST)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "b5e33163-fbd8-4ad9-b60b-53fbf91926ff"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "30e262b8-8d24-42a8-8760-edf39391818b",
+              "name": "target",
+              "value": "={{ $json.body.target || 'http://localhost:8090' }}",
+              "type": "string"
+            },
+            {
+              "id": "1c31c4fd-74c9-43b7-a481-f1573b02aae0",
+              "name": "sha",
+              "value": "={{ $json.body.after || $json.body.sha || 'local' }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "40146c57-127c-429c-bc03-279038374dd1",
+      "name": "استخراج repo + sha",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=ARENA_BUS=/home/user/n8n/arena/bus /home/user/n8n/arena/bin/arena submit --title \"CI gate ={{ $json.sha }}\" --target \"{{ $json.target }}\" --actions passive,sast --mode quick --priority P2 --json",
+        "executeOnce": false
+      },
+      "id": "058203e5-0d44-45e2-a0c5-edb0f3e140a5",
+      "name": "فحص سريع (SAST)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1.1,
+      "position": [
+        400,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=ARENA_BUS=/home/user/n8n/arena/bus /home/user/n8n/arena/bin/arena watch \"{{ JSON.parse($json.stdout).id }}\" --timeout 600 --interval 20 --json || true",
+        "executeOnce": false
+      },
+      "id": "161000ab-d380-44d9-8ac6-1077279319e7",
+      "name": "انتظار الوكيل (10د)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1.1,
+      "position": [
+        600,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=ARENA_BUS=/home/user/n8n/arena/bus /home/user/n8n/arena/bin/arena gate \"{{ JSON.parse($(فحص سريع (SAST)).item.json.stdout).id }}}\" --max-severity high --json || true",
+        "executeOnce": false
+      },
+      "id": "457eea2d-e725-45b0-87c1-803b01168c7c",
+      "name": "بوابة النشر",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"allowed\": JSON.parse($json.stdout).ok, \"blocking\": JSON.parse($json.stdout).blocking, \"details\": JSON.parse($json.stdout).details } }}",
+        "options": {
+          "responseCode": "={{ JSON.parse($json.stdout).ok ? 200 : 403 }}"
+        }
+      },
+      "id": "d088d2e0-b28d-4dbe-b619-d732060bdadc",
+      "name": "Respond للـ CI",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1000,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "PR / commit hook (POST)": {
+      "main": [
+        [
+          {
+            "node": "استخراج repo + sha",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "استخراج repo + sha": {
+      "main": [
+        [
+          {
+            "node": "فحص سريع (SAST)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "فحص سريع (SAST)": {
+      "main": [
+        [
+          {
+            "node": "انتظار الوكيل (10د)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "انتظار الوكيل (10د)": {
+      "main": [
+        [
+          {
+            "node": "بوابة النشر",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "بوابة النشر": {
+      "main": [
+        [
+          {
+            "node": "Respond للـ CI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "timezone": "Asia/Aden",
+    "saveExecutionProgress": true
+  },
+  "versionId": "ec1c79ef-4c39-4fbe-977e-63a93bd2d698",
+  "id": "arena-13166590",
+  "meta": {
+    "instanceId": "arena",
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

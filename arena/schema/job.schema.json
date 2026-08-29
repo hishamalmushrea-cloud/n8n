@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "arena.job/1",
+  "title": "Arena pentest job (n8n → agent bus)",
+  "type": "object",
+  "required": ["schema", "id", "title", "target", "actions", "mode", "priority", "state", "created_at"],
+  "properties": {
+    "schema": { "const": "arena.job/1" },
+    "id": { "type": "string", "pattern": "^JOB-[0-9]{8}-[0-9a-f]{6}(-R[0-9]{4})*$" },
+    "title": { "type": "string", "minLength": 3, "maxLength": 200 },
+    "target": {
+      "type": "object",
+      "required": ["value", "kind", "authorized"],
+      "properties": {
+        "value": { "type": "string", "description": "URL أو مسار كود محلي" },
+        "kind": { "enum": ["url", "code", "apk", "container", "mobile", "api-spec"] },
+        "authorized": { "type": "boolean", "description": "نتيجة فحص engagement.json" }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": { "enum": ["passive", "sast", "active", "exploit-validation", "fuzz", "osint", "compliance-evidence"] },
+      "minItems": 1
+    },
+    "mode": { "enum": ["quick", "standard", "full", "deep", "compliance", "retest"] },
+    "priority": { "enum": ["P1", "P2", "P3", "P4"] },
+    "state": { "enum": ["queued", "running", "onhold", "done", "failed", "blocked"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "requested_by": { "type": "string" },
+    "notify_url": { "type": ["string", "null"], "description": "webhook محلي فقط لوقظ n8n" },
+    "context": {
+      "type": "object",
+      "properties": {
+        "instructions": { "type": "string" },
+        "payload": { "type": "string" },
+        "credentials_note": { "type": "string", "description": "لا تُخزّن أسراراً في الناقل؛ استخدم مراجع لـ n8n credentials" }
+      }
+    },
+    "lease": {
+      "type": ["object", "null"],
+      "properties": {
+        "worker": { "type": "string" },
+        "claimed_at": { "type": "string", "format": "date-time" },
+        "heartbeat_at": { "type": "string", "format": "date-time" },
+        "ttl_seconds": { "type": "integer", "minimum": 30 }
+      }
+    },
+    "result": {
+      "type": ["object", "null"],
+      "properties": {
+        "verdict": { "enum": ["PASS", "FAIL", "ERROR"] },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "summary": { "type": "string" },
+        "counts": { "type": "object" },
+        "report": { "type": "string" },
+        "finished_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

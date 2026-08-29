@@ -1,3 +1,8 @@
+> ⛔ **غير مُوصى به (مؤرشف):** هذه الصفحة تصف فكرة "Arena → OpenAI proxy عبر Playwright"
+> التي تُهمَل الآن. البديل المُنفَّذ والمُجرَّب: [`docs/ARENA_BUS_AR.md`](ARENA_BUS_AR.md) — ناقل ملفات
+> يجعل Arena Agent Mode هو العقل، بلا استرجاع واجهة موقع ولا مفاتيح API. الملفات القديمة
+> (`scripts/arena-openai-proxy.js`, `scripts/arena-automation.js`) باقية للتاريخ فقط.
+
 # نظام يعتمد 100% على Arena.ai Agent Mode فقط - بدون أي ذكاء اصطناعي آخر
 
 ## الفكرة الأساسية

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# `arena` launcher — أضِف هذا المجلد إلى PATH أو اعمل link:
+#   export PATH="$HOME/n8n/arena/bin:$PATH"
+set -uo pipefail
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SELF_DIR/../.." && pwd)"
+export ARENA_BUS="${ARENA_BUS:-$ROOT/arena/bus}"
+exec node "$SELF_DIR/arena.mjs" "$@"

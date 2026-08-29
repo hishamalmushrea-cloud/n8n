@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "arena.finding/1",
+  "title": "Arena verified security finding (Strix-compatible)",
+  "type": "object",
+  "required": ["title", "severity", "cvss", "description", "reproduction", "remediation"],
+  "properties": {
+    "id": { "type": "string", "description": "يُولَّد آلياً إن غاب (F-xxxxxx)" },
+    "title": { "type": "string", "minLength": 8, "maxLength": 300 },
+    "severity": { "enum": ["info", "low", "medium", "high", "critical"] },
+    "cvss": { "type": "number", "minimum": 0, "maximum": 10, "description": "CVSS 3.1 base score" },
+    "cvss_vector": { "type": "string", "description": "مثال: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N" },
+    "cwe": { "type": "string", "pattern": "^[0-9]*$", "description": "رقم CWE بدون بادئة" },
+    "owasp": { "type": "string", "description": "A01:2021 Broken Access Control" },
+    "description": { "type": "string", "minLength": 20 },
+    "reproduction": {
+      "type": "object",
+      "required": ["steps"],
+      "properties": {
+        "steps": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "request": { "type": "string" },
+        "response": { "type": "string" },
+        "script": { "type": "string", "description": "PoC قابل للتشغيل (bash/python)" }
+      }
+    },
+    "remediation": {
+      "type": ["object", "string"],
+      "properties": {
+        "summary": { "type": "string", "minLength": 10 },
+        "patch": { "type": "string", "description": "diff مقترح" },
+        "owner": { "type": "string" },
+        "effort": { "enum": ["S", "M", "L"] },
+        "due_days": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "verified": { "type": "boolean", "description": "وُجد PoC يعمل فعلاً؟ (سياسة Strix: لا بلاغ بدون إثبات)" },
+    "status": { "enum": ["open", "accepted-risk", "false-positive", "fix-pending-retest", "fixed-verified"], "default": "open" },
+    "evidence": { "type": "string", "description": "مسار داخل bus/jobs/<id>/evidence/" },
+    "affected_endpoint": { "type": "string" },
+    "code_location": {
+      "type": "object",
+      "properties": { "file": { "type": "string" }, "line": { "type": ["integer", "string"] } }
+    },
+    "source": { "enum": ["strix", "arena-agent", "npm-audit", "semgrep", "gitleaks", "manual"] },
+    "source_ref": { "type": ["string", "null"] },
+    "references": { "type": "string" },
+    "notes": { "type": "string" },
+    "reported_by": { "type": "string" },
+    "found_at": { "type": "string", "format": "date-time" }
+  }
+}

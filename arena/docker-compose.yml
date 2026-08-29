@@ -1,0 +1,102 @@
+# n8n ⇄ Arena Bus ⇄ Strix — نسخة "بدون API خارجي"
+# تختلف عن docker-compose.yml في الجذر: لا playwright، لا "OpenAI proxy" وهمي،
+# بل ناقل ملفات + وكيل (Arena Agent Mode) أو Strix بموديل محلي.
+version: "3.9"
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: n8n
+      DB_POSTGRESDB_PASSWORD: ${N8N_DB_PASSWORD:-change_me_postgres}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?ضع مفتاح تشفير 32 حرفاً في .env}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      GENERIC_TIMEZONE: Asia/Aden
+      TZ: Asia/Aden
+      EXECUTIONS_MODE: regular
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
+      N8N_DEFAULT_BINARY_DATA_MODE: filesystem
+      # للعقد مع الناقل
+      ARENA_BUS: /data/arena/bus
+      ARENA_BIN: /data/arena/bin/arena
+      NODES_EXCLUDE: "[]"          # نحتاج ExecuteCommand؛ لا تحذفه
+      # تنبيه: لا تضع مفاتيح LLM هنا. لا شيء من هذا يحتاج مفتاحاً.
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ${ARENA_REPO:-../..}:/data          # المستودع: يحتوي arena/bin و arena/n8n
+      - arena_bus:/data/arena/bus
+      - ${TARGET_APPS_PATH:-./target_apps}:/targets:ro   # التطبيقات المفحوصة (للقراءة فقط)
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: n8n
+      POSTGRES_USER: n8n
+      POSTGRES_PASSWORD: ${N8N_DB_PASSWORD:-change_me_postgres}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U n8n"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ── الطبقة الأمنية ────────────────────────────────────────────────────────
+  # 1) runner يراقب الطابور: يستدعي Strix الحقيقي إن وُجد، وإلا يسلّم المهمة لوكيل Arena.
+  arena-runner:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /data
+    command: sh -c "while true; do sh arena/runners/strix-arena-runner.sh --drain || true; sleep 20; done"
+    environment:
+      ARENA_BUS: /data/arena/bus
+      STRIX_MODE: ${STRIX_MODE:-agent}      # agent = الوكيل ينفّذ | local = حاوية strix
+    volumes:
+      - ${ARENA_REPO:-../..}:/data
+      - arena_bus:/data/arena/bus
+      - ${TARGET_APPS_PATH:-./target_apps}:/targets:ro
+
+  # 2) Strix الفعلي (اختياري): يحتاج Docker-in-Docker لمشبك العزل + موديل محلي فقط.
+  strix:
+    image: python:3.11-slim
+    profiles: ["strix"]
+    working_dir: /work
+    entrypoint: ["tail", "-f", "/dev/null"]
+    environment:
+      STRIX_LLM: ollama/qwen3-vl            # لا OpenAI، لا Anthropic
+      LLM_API_BASE: http://host.docker.internal:11434
+      LLM_API_KEY: local-no-key
+      ARENA_BUS: /work/arena/bus
+    volumes:
+      - ${ARENA_REPO:-../..}:/work
+      - arena_bus:/work/arena/bus
+      - /var/run/docker.sock:/var/run/docker.sock   # ضروري لمشبك عزل strix
+      - ${TARGET_APPS_PATH:-./target_apps}:/targets:ro
+
+  # 3) الموديل المحلي (اختياري — فقط إن أردت Strix يشتغل بلا إشراف).
+  #    ملاحظة صريحة: نموذج محلي < 30B يتعثر في العمل الوكيلي؛ الموثوقية أقل بكثير
+  #    من ترك الوكيل (Arena Agent Mode) ينفّذ المنهجية.
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["local-llm"]
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+
+volumes:
+  n8n_data:
+  pg_data:
+  arena_bus:
+  ollama_data:
