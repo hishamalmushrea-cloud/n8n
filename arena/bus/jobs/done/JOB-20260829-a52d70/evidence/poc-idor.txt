@@ -1,0 +1,4 @@
+GET /api/orders/1001 HTTP/1.1
+Authorization: [REDACTED]
+
+{"customer":"Ali","card":"4111111111111111"}

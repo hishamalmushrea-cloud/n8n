@@ -1,0 +1,45 @@
+{
+  "id": "JOB-20260829-a52d70",
+  "generated_at": "2026-08-29T19:33:13.362Z",
+  "summary": "smoke",
+  "target": "http://localhost:8090",
+  "mode": "quick",
+  "counts": {
+    "total": 1,
+    "by_severity": {
+      "high": 1
+    },
+    "open": 1,
+    "fixed_verified": 0,
+    "blocking": 1
+  },
+  "findings": [
+    {
+      "title": "IDOR في /api/orders/{id} يسمح بقراءة طلبات أي مستخدم",
+      "severity": "high",
+      "cvss": 7.5,
+      "cwe": "306",
+      "owasp": "A01:2021 Broken Access Control",
+      "description": "الendpoint لا يتحقق من ملكية المورد؛ أي JWT صالح يقرأ أي order_id.",
+      "reproduction": {
+        "steps": [
+          "login as user A, capture JWT",
+          "GET /api/orders/1001 مع توكن B",
+          "الاستجابة تتضمن بيانات A"
+        ]
+      },
+      "remediation": {
+        "summary": "قارن user_id في الـ token مع ملكية السجل قبل الإرجاع"
+      },
+      "verified": true,
+      "evidence": "evidence/poc-idor.txt",
+      "id": "F-de7103",
+      "status": "open",
+      "found_at": "2026-08-29T19:33:13.060Z",
+      "reported_by": "arena-agent"
+    }
+  ],
+  "evidence": [
+    "poc-idor.txt"
+  ]
+}
