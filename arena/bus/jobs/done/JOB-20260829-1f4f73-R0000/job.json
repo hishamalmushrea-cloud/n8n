@@ -17,7 +17,7 @@
   "priority": "P2",
   "state": "done",
   "created_at": "2026-08-29T19:59:20.002Z",
-  "updated_at": "2026-08-29T20:01:00.090Z",
+  "updated_at": "2026-08-29T20:01:12.613Z",
   "requested_by": "n8n",
   "notify_url": null,
   "context": {
@@ -26,8 +26,8 @@
   "lease": null,
   "result": {
     "verdict": "PASS",
-    "score": 0,
-    "summary": "كل النتائج العشرة مُغلَقة ومُتحقَّق منها آلياً (27/27). بوابة CI ستقبل النشر.",
+    "score": 100,
+    "summary": "كل النتائج مُغلَقة ومُتحقَّق منها (27/27) — بوابة CI تقبل النشر",
     "counts": {
       "total": 11,
       "by_severity": {
@@ -41,6 +41,6 @@
       "blocking": 0
     },
     "report": "report.md",
-    "finished_at": "2026-08-29T20:01:00.090Z"
+    "finished_at": "2026-08-29T20:01:12.613Z"
   }
 }

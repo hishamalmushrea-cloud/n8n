@@ -1,6 +1,6 @@
 {
   "id": "JOB-20260829-1f4f73-R0000",
-  "generated_at": "2026-08-29T20:01:00.090Z",
+  "generated_at": "2026-08-29T20:01:12.612Z",
   "summary": "retest: DEMO — فحص معمل الاختبار (10 findings)",
   "target": "http://localhost:8090",
   "mode": "retest",
