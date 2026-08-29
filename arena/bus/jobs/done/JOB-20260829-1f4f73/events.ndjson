@@ -1,0 +1,17 @@
+{"ts":"2026-08-29T19:52:28.337Z","actor":"cli","type":"submit","msg":"queued from cli","actions":["passive","sast","active","exploit-validation"],"authorized":true}
+{"ts":"2026-08-29T19:52:46.782Z","actor":"cli","type":"claim","msg":"claimed by arena-agent-mode"}
+{"ts":"2026-08-29T19:54:33.233Z","actor":"cli","type":"finding","msg":"critical نقطة نهاية تصحيحية مكشوفة تُرجع كل كلمات المرور بوضوح","finding_id":"F-999df2","cvss":9.1,"cwe":"200"}
+{"ts":"2026-08-29T19:54:33.305Z","actor":"cli","type":"finding","msg":"high BOLA/IDOR في /api/orders/:id — أي مستخدم يقرأ طلبات الآخرين مع أرقام البطاقات","finding_id":"F-9bbe6d","cvss":8.1,"cwe":"639"}
+{"ts":"2026-08-29T19:54:33.384Z","actor":"cli","type":"finding","msg":"high Mass assignment في POST /api/users/me يسمح بترقية الدور إلى admin","finding_id":"F-ff4116","cvss":8.8,"cwe":"915"}
+{"ts":"2026-08-29T19:54:33.457Z","actor":"cli","type":"finding","msg":"high SSRF: الخادم يجلب أي URL من مدخل المستخدم (منافذ داخلية + رابط metadata)","finding_id":"F-4a6f8c","cvss":8.6,"cwe":"918"}
+{"ts":"2026-08-29T19:54:33.532Z","actor":"cli","type":"finding","msg":"medium XSA من نوع Reflected عبر /search?q= بدون ترميز HTML","finding_id":"F-a52038","cvss":6.1,"cwe":"79"}
+{"ts":"2026-08-29T19:54:33.606Z","actor":"cli","type":"finding","msg":"medium عدم وجود حد لمحاولات الدخول + رسائل تمييز وجود المستخدم","finding_id":"F-218087","cvss":5.3,"cwe":"307"}
+{"ts":"2026-08-29T19:54:33.679Z","actor":"cli","type":"finding","msg":"medium كلمات المرور تُخزّن وتُعاد بنص صريح في استجابات الـ API","finding_id":"F-705ab6","cvss":6.5,"cwe":"256"}
+{"ts":"2026-08-29T19:54:33.746Z","actor":"cli","type":"finding","msg":"low SSRF/internal error: تسريب Stack Trace ومسار الملفات من المعالج العام","finding_id":"F-1233a4","cvss":3.7,"cwe":"209"}
+{"ts":"2026-08-29T19:54:33.817Z","actor":"cli","type":"finding","msg":"low ترويسات أمنية ناقصة + كشف البنية (server / x-powered-by) وغياب HSTS/CSP/Frameguard","finding_id":"F-65472a","cvss":3.7,"cwe":"693"}
+{"ts":"2026-08-29T19:54:33.892Z","actor":"cli","type":"finding","msg":"medium JWT: الخوارزمية غير مثبّتة ولا تحقق من iss/aud، وسر التوقيع في الكود","finding_id":"F-016e36","cvss":5.9,"cwe":"347"}
+{"ts":"2026-08-29T19:54:43.169Z","actor":"cli","type":"evidence","msg":"01-passive.txt"}
+{"ts":"2026-08-29T19:54:43.238Z","actor":"cli","type":"evidence","msg":"02-idor-massassign.txt"}
+{"ts":"2026-08-29T19:54:43.308Z","actor":"cli","type":"evidence","msg":"03-ssrf-xss.txt"}
+{"ts":"2026-08-29T19:54:43.373Z","actor":"cli","type":"note","msg":"فحص كامل (recon + authz + injection + SSRF + headers) مع إثبات مباشر من الهدف؛ الأدلة منقّاة من التوكنات آلياً"}
+{"ts":"2026-08-29T19:54:43.442Z","actor":"cli","type":"complete","msg":"10 نتائج مؤكَّدة PoC: حرجة واحدة (كشف كلمات مرور)، 3 عالية (IDOR/تصعيد صلاحيات/SSRF). الإصلاح مقترح بـ patches.","verdict":"FAIL"}

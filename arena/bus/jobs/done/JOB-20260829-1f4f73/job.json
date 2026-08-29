@@ -1,0 +1,44 @@
+{
+  "schema": "arena.job/1",
+  "id": "JOB-20260829-1f4f73",
+  "title": "DEMO — فحص معمل الاختبار",
+  "target": {
+    "value": "http://localhost:8090",
+    "kind": "url",
+    "authorized": true
+  },
+  "actions": [
+    "passive",
+    "sast",
+    "active",
+    "exploit-validation"
+  ],
+  "mode": "full",
+  "priority": "P2",
+  "state": "done",
+  "created_at": "2026-08-29T19:52:28.336Z",
+  "updated_at": "2026-08-29T19:54:43.442Z",
+  "requested_by": "n8n",
+  "notify_url": null,
+  "context": {},
+  "lease": null,
+  "result": {
+    "verdict": "FAIL",
+    "score": 15,
+    "summary": "10 نتائج مؤكَّدة PoC: حرجة واحدة (كشف كلمات مرور)، 3 عالية (IDOR/تصعيد صلاحيات/SSRF). الإصلاح مقترح بـ patches.",
+    "counts": {
+      "total": 10,
+      "by_severity": {
+        "critical": 1,
+        "high": 3,
+        "medium": 4,
+        "low": 2
+      },
+      "open": 10,
+      "fixed_verified": 0,
+      "blocking": 4
+    },
+    "report": "report.md",
+    "finished_at": "2026-08-29T19:54:43.442Z"
+  }
+}

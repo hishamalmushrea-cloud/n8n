@@ -1,0 +1,5 @@
+### SSRF internal + metadata
+{"status":200,"preview":"{\"status\":\"ok\"}"}
+{"status":401,"preview":"No MMDS token provided. Use `X-metadata-token` or `X-aws-ec2-metadata-token` header to specify the session token."}
+### XSS
+<html><body><h1>نتائج البحث: <script>alert(1)</script></h1></body></html>

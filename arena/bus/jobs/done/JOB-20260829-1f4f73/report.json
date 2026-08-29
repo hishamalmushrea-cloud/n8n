@@ -1,0 +1,291 @@
+{
+  "id": "JOB-20260829-1f4f73",
+  "generated_at": "2026-08-29T19:54:43.442Z",
+  "summary": "DEMO — فحص معمل الاختبار",
+  "target": "http://localhost:8090",
+  "mode": "full",
+  "counts": {
+    "total": 10,
+    "by_severity": {
+      "critical": 1,
+      "high": 3,
+      "medium": 4,
+      "low": 2
+    },
+    "open": 10,
+    "fixed_verified": 0,
+    "blocking": 4
+  },
+  "findings": [
+    {
+      "title": "نقطة نهاية تصحيحية مكشوفة تُرجع كل كلمات المرور بوضوح",
+      "severity": "critical",
+      "cvss": 9.1,
+      "cwe": "200",
+      "owasp": "A01:2021 Broken Access Control",
+      "description": "GET /api/debug غير محمي بالمصادقة ويعيد قائمة كل المستخدمين مع بريداتهم وأدوارهم وكلمات مرورهم بنص صريح. أي شخص يصل للمنفذ 8090 (بما فيه هجمات SSRF الداخلية) يحصل على سيطرة كاملة على الحسابات.",
+      "reproduction": {
+        "steps": [
+          "curl -sS http://localhost:8090/api/debug  →  200 OK بلا أي توكن",
+          "الاستجابة تتضمن users[].password صراحةً"
+        ],
+        "request": "GET /api/debug HTTP/1.1\nHost: localhost:8090",
+        "response": "{\"env\":\"lab\",\"users\":[{\"email\":\"ali@lab.test\",\"role\":\"admin\",\"password\":\"Passw0rd!1\"},{\"email\":\"sara@lab.test\",\"role\":\"admin\",\"password\":\"Passw0rd!2\"}]}"
+      },
+      "remediation": {
+        "summary": "احذف /api/debug من الإنتاج؛ اربطه بـ flag بيئي + مصادقة admin، وفلتر أي حقل حساس قبل التسلسل (allowlist fields).",
+        "patch": "-  'GET /api/debug': (req, res) => json(res, 200, { env: ..., users: DB.users.map((u) => ({ email: u.email, role: u.role, password: u.password })) }),\n+  'GET /api/debug': (req, res) => {\n+    const c = readToken(req.headers.authorization);\n+    if (process.env.NODE_ENV === 'production' || c?.role !== 'admin') return json(res, 404, { error: 'no route' });\n+    return json(res, 200, { env: process.env.LAB_DEBUG_BANNER || 'lab' });\n+  },"
+      },
+      "verified": true,
+      "affected_endpoint": "GET /api/debug",
+      "id": "F-999df2",
+      "status": "open",
+      "found_at": "2026-08-29T19:54:33.232Z",
+      "reported_by": "arena-agent"
+    },
+    {
+      "title": "BOLA/IDOR في /api/orders/:id — أي مستخدم يقرأ طلبات الآخرين مع أرقام البطاقات",
+      "severity": "high",
+      "cvss": 8.1,
+      "cwe": "639",
+      "owasp": "A01:2021 Broken Access Control",
+      "description": "المسار يتحقق من صحة التوكن فقط ولا يقارن user_id في التوكن مع ملكية السجل. مستخدم role=customer قرّأ الطلب 1002 العائد للمستخدم 1 وحصل على البند والمبلغ ورقم البطاقة (PCI-PII).",
+      "reproduction": {
+        "steps": [
+          "POST /api/login بحساب sara@lab.test → توكن (sub=2, role=customer)",
+          "GET /api/orders/1002 بنفس التوكن → 200 مع بيانات مستخدم آخر",
+          "المقارنة: الطلب 1002 يملكه user_id=1 ≠ 2"
+        ],
+        "request": "GET /api/orders/1002 HTTP/1.1\nAuthorization: Bearer <sara-jwt>",
+        "response": "{\"id\":1002,\"user_id\":1,\"item\":\"Keyboard\",\"amount\":120,\"card\":\"5500005555555559\",\"note\":\"gift wrap\"}"
+      },
+      "remediation": {
+        "summary": "افرض فحص الملكية: where id = :id AND user_id = :claims.sub وإلا 404 (لا 403 لتجنّب التعداد). غلّفه في وسيط authorisation موحد لكل مسارات الموارد.",
+        "patch": "-  const o = DB.orders.find((x) => String(x.id) === params.id);\n+  const o = DB.orders.find((x) => String(x.id) === params.id && x.user_id === claims.sub);\n-  if (!o) return json(res, 404, { error: 'not found' });\n+  if (!o) return json(res, 404, { error: 'not found' });\n+  delete o.card; // لا تُرجع PAN في واجهات العرض"
+      },
+      "verified": true,
+      "affected_endpoint": "GET /api/orders/:id",
+      "id": "F-9bbe6d",
+      "status": "open",
+      "found_at": "2026-08-29T19:54:33.304Z",
+      "reported_by": "arena-agent"
+    },
+    {
+      "title": "Mass assignment في POST /api/users/me يسمح بترقية الدور إلى admin",
+      "severity": "high",
+      "cvss": 8.8,
+      "cwe": "915",
+      "owasp": "A04:2021 Insecure Design",
+      "description": "المُعالج يمرّر جسم الطلب كما هو إلى Object.assign(u, b) فيقبل role و password و id. رفع المستخدم sara صلاحياته إلى admin بثلاثة أسطر curl، ثم قرأ بيانات admins.",
+      "reproduction": {
+        "steps": [
+          "POST /api/users/me بـ {\"role\":\"admin\"} مع توكن sara",
+          "الاستجابة تعيد role: admin",
+          "التحقق: GET /api/debug يُظهر sara role=admin",
+          "يمكن كذلك تغيير password أي حساب آخر عبر id؟ (نفس الثغرة تسمح بتغيير كلمات مرور الآخرين لاحقاً لو استُخدمت route مماثلة)"
+        ],
+        "request": "POST /api/users/me HTTP/1.1\nAuthorization: Bearer <sara-jwt>\nContent-Type: application/json\n\n{\"role\":\"admin\"}",
+        "response": "{\"updated\":true,\"user\":{\"id\":2,\"email\":\"sara@lab.test\",\"role\":\"admin\"}}"
+      },
+      "remediation": {
+        "summary": "استخدم allowlist حقول (email, note) ولا تمرر الجسم إلى assign مباشرة؛ وانقل تغيير الدور إلى عملية إدارية محمية + سجل تدقيق.",
+        "patch": "-  Object.assign(u, b); // يقبل كل شيء\n+  const { email, note } = b ?? {};\n+  if (email !== undefined) u.email = String(email);\n+  if (note !== undefined) u.note = String(note).slice(0, 500);"
+      },
+      "verified": true,
+      "affected_endpoint": "POST /api/users/me",
+      "id": "F-ff4116",
+      "status": "open",
+      "found_at": "2026-08-29T19:54:33.383Z",
+      "reported_by": "arena-agent"
+    },
+    {
+      "title": "SSRF: الخادم يجلب أي URL من مدخل المستخدم (منافذ داخلية + رابط metadata)",
+      "severity": "high",
+      "cvss": 8.6,
+      "cwe": "918",
+      "owasp": "A10:2021 Server-Side Request Forgery",
+      "description": "POST /api/fetch-preview يستدعي http.get على عنوان يتحكم به المستخدم دون allowlist أو منع للروابط الخاصة. تم إثبات: قراءة /api.debug من داخل الخادم، والتنبل على 127.0.0.1:5678 (كشف خدمة n8n داخلية)، وبلوغ 169.254.169.254 (استجابة 401 من MMDS تعني أن المسار قابل للوصول).",
+      "reproduction": {
+        "steps": [
+          "POST /api/fetch-preview {\"url\":\"http://127.0.0.1:8090/api/debug\"} → 200 + كلمات المرور",
+          "{\"url\":\"http://127.0.0.1:5678/healthz\"} → {\"status\":200,\"preview\":\"{\\\"status\\\":\\\"ok\\\"}\"} = اكتشاف منفذ داخلي",
+          "{\"url\":\"http://169.254.169.254/latest/meta-data/\"} → status 401 \"No MMDS token provided\" = الرابط الخاص مسموح الوصول"
+        ],
+        "request": "POST /api/fetch-preview HTTP/1.1\nContent-Type: application/json\n\n{\"url\":\"http://127.0.0.1:5678/healthz\"}",
+        "response": "{\"status\":200,\"preview\":\"{\\\"status\\\":\\\"ok\\\"}\"}"
+      },
+      "remediation": {
+        "summary": "أجبر https/http على قائمة نطاقات مصرّح بها، ارفض CIDRs الخاصة (127/8, 10/8, 169.254/16, ::1, 172.16/12) بعد فك DNS (منع DNS rebinding)، عطّل إعادة التوجيه، وحد الحجم والوقت.",
+        "patch": "+  const BLOCK = /^(?:127\\.|10\\.|192\\.168\\.|169\\.254\\.|172\\.(?:1[6-9]|2\\d|3[01])\\.|0\\.)/;\n+  const ip = await dns.lookup(target.hostname).catch(() => null);\n+  if (!/^https?:$/.test(target.protocol) || BLOCK.test(ip?.address || '')) return json(res, 400, { error: 'url not allowed' });\n+  const req2 = mod.get(target, { timeout: 3000, maxRedirects: 0 }, ...)"
+      },
+      "verified": true,
+      "affected_endpoint": "POST /api/fetch-preview",
+      "id": "F-4a6f8c",
+      "status": "open",
+      "found_at": "2026-08-29T19:54:33.456Z",
+      "reported_by": "arena-agent"
+    },
+    {
+      "title": "XSA من نوع Reflected عبر /search?q= بدون ترميز HTML",
+      "severity": "medium",
+      "cvss": 6.1,
+      "cwe": "79",
+      "owasp": "A03:2021 Injection",
+      "description": "المُدخل q يُفكّ من الترميز ثم يُدرج في <h1> مباشرة، فأي <script> يعود كما هو مع استجابة 200 وcontent-type نص/html. لا ترويسة CSP تمنع التنفيذ.",
+      "reproduction": {
+        "steps": [
+          "GET /search?q=%3Cscript%3Ealert(document.domain)%3C/script%3E",
+          "الاستجابة تتضمن <script>alert(document.domain)</script> حرفياً",
+          "لا يوجد Content-Security-Policy → السكربت ينفّذ في متصفح الضحية عند مشاركة الرابط"
+        ],
+        "response": "<html><body><h1>نتائج البحث: <script>alert(document.domain)</script></h1></body></html>"
+      },
+      "remediation": {
+        "summary": "لا تُرجع HTML في API endpoint؛ وإن يلزم، اهرّب (escapeHtml) وأضف CSP صارمة + X-Content-Type-Options: nosniff، أو أعد JSON نصياً فقط.",
+        "patch": "-  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });\n-  res.end(`<html><body><h1>نتائج البحث: ${decodeURIComponent(q)}</h1></body></html>`);\n+  const esc = decodeURIComponent(q).replace(/[&<>\"'`]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;','`':'&#96;' }[c]));\n+  res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'x-content-type-options': 'nosniff' });\n+  res.end(JSON.stringify({ query: esc, results: [] }));"
+      },
+      "verified": true,
+      "affected_endpoint": "GET /search",
+      "id": "F-a52038",
+      "status": "open",
+      "found_at": "2026-08-29T19:54:33.531Z",
+      "reported_by": "arena-agent"
+    },
+    {
+      "title": "عدم وجود حد لمحاولات الدخول + رسائل تمييز وجود المستخدم",
+      "severity": "medium",
+      "cvss": 5.3,
+      "cwe": "307",
+      "owasp": "A07:2021 Identification and Authentication Failures",
+      "description": "25 محاولة دخول خاطئة متتالية ناجحة بلا أي 429 أو قفل؛ ورسالة \"no such user\" مقابل \"wrong password\" تمكّن مهاجماً من بناء قائمة بريد صالحة قبل شنّ هجمات التخمين.",
+      "reproduction": {
+        "steps": [
+          "حلقة 25 محاولة بكلمة مرور خاطئة → 25 × 401 بلا تأخير أو حظر",
+          "بريد غير موجود → {\"error\":\"no such user\"} (401)",
+          "بريد موجود + مرور خاطئ → {\"error\":\"wrong password\"} (401)"
+        ],
+        "request": "POST /api/login HTTP/1.1\nContent-Type: application/json\n\n{\"email\":\"nobody@lab.test\",\"password\":\"x\"}",
+        "response": "{\"error\":\"no such user\"} [401]  vs  {\"error\":\"wrong password\"} [401]"
+      },
+      "remediation": {
+        "summary": "طبّق rate-limit لكل IP + لكل بريد (مثلاً 5/15دقيقة ثم backoff)، وقفل مؤقت بعد F محاولات، ورسالة موحدة \"بيانات الدخول غير صحيحة\"، وأضف Captcha للحسابات المشبوهة.",
+        "patch": "+  const rl = await rateLimit(req.socket.remoteAddress, b.email, { max: 5, windowMs: 15 * 60_000 });\n+  if (!rl.allowed) return json(res, 429, { error: 'too many attempts' });\n-  if (!ok) return json(res, 401, { error: u ? 'wrong password' : 'no such user' });\n+  if (!ok) return json(res, 401, { error: 'invalid credentials' });"
+      },
+      "verified": true,
+      "affected_endpoint": "POST /api/login",
+      "id": "F-218087",
+      "status": "open",
+      "found_at": "2026-08-29T19:54:33.605Z",
+      "reported_by": "arena-agent"
+    },
+    {
+      "title": "كلمات المرور تُخزّن وتُعاد بنص صريح في استجابات الـ API",
+      "severity": "medium",
+      "cvss": 6.5,
+      "cwe": "256",
+      "owasp": "A02:2021 Cryptographic Failures",
+      "description": "حقل password يظهر كما هو في استجابة POST /api/users/me (وفي /api/debug)، والتخزين مقارنة مباشرة `u.password === b.password` بلا تجزئة أو salt — فأي تسريب قاعدة بيانات = استيلاء فوري.",
+      "reproduction": {
+        "steps": [
+          "POST /api/users/me {\"note\":\"x\"} → الاستجابة تتضمن \"password\":\"Passw0rd!2\"",
+          "المصادقة تعتمد مقارنة نصية مباشرة في الكود (سطر `u.password === b.password`)"
+        ],
+        "response": "{\"updated\":true,\"user\":{\"id\":2,\"email\":\"sara@lab.test\",\"password\":\"Passw0rd!2\",\"role\":\"admin\"}}"
+      },
+      "remediation": {
+        "summary": "استخدم scrypt/bcrypt/argon2 + compare ثابت الزمن، وأعد نسخة مُسحّاة من الكائن (DTO) في كل الاستجابات.",
+        "patch": "-    const ok = u && u.password === b.password;\n+    const ok = u && await verifyPassword(u.password_hash, b.password); // scrypt, timingSafeEqual\n-    return json(res, 200, { updated: true, user: u });\n+    const { password: _p, password_hash: _h, ...safe } = u;\n+    return json(res, 200, { updated: true, user: safe });"
+      },
+      "verified": true,
+      "affected_endpoint": "POST /api/users/me, POST /api/login",
+      "id": "F-705ab6",
+      "status": "open",
+      "found_at": "2026-08-29T19:54:33.678Z",
+      "reported_by": "arena-agent"
+    },
+    {
+      "title": "SSRF/internal error: تسريب Stack Trace ومسار الملفات من المعالج العام",
+      "severity": "low",
+      "cvss": 3.7,
+      "cwe": "209",
+      "owasp": "A05:2021 Security Misconfiguration",
+      "description": "أي استثناء في المعالج يُرد كـ 500 متضمناً error.stack كاملاً مع مسارات مطلقة للملفات (file:///home/user/n8n/arena/lab/vuln-app/server.mjs) — يساعد المهاجم على رسم البنية الداخلية.",
+      "reproduction": {
+        "steps": [
+          "POST /api/fetch-preview {\"url\":\"ftp://x/y\"}",
+          "الاستجابة تتضمن stack كامل مع مسارات الملفات"
+        ],
+        "response": "{\"error\":\"Protocol \\\"ftp:\\\" not supported. Expected \\\"http:\\\"\",\"stack\":\"TypeError [ERR_INVALID_PROTOCOL]... at Object.get (node:http:113:15) at POST /api/fetch-preview [as handler] (file:///home/user/n8n/arena/lab/vuln-app/server.mjs:95:22)...\"}"
+      },
+      "remediation": {
+        "summary": "أعد رسالة عامة + requestId، وسجّل التفاصيل في الطرف الخادم فقط.",
+        "patch": "-  } catch (e) { json(res, 500, { error: e.message, stack: e.stack }); }\n+  } catch (e) { const rid = crypto.randomUUID(); logError(rid, e); json(res, 500, { error: 'internal error', requestId: rid }); }"
+      },
+      "verified": true,
+      "affected_endpoint": "all routes",
+      "id": "F-1233a4",
+      "status": "open",
+      "found_at": "2026-08-29T19:54:33.746Z",
+      "reported_by": "arena-agent"
+    },
+    {
+      "title": "ترويسات أمنية ناقصة + كشف البنية (server / x-powered-by) وغياب HSTS/CSP/Frameguard",
+      "severity": "low",
+      "cvss": 3.7,
+      "cwe": "693",
+      "owasp": "A05:2021 Security Misconfiguration",
+      "description": "كل الاستجابات تفتقر إلى Content-Security-Policy، Strict-Transport-Security، X-Content-Type-Options، Referrer-Policy، وPermissions-Policy، وتُظهر Server و X-Powered-Banner. هذا يسهّل استغلال XSS ويسمح بالتجميع في iframe.",
+      "reproduction": {
+        "steps": [
+          "curl -sI http://localhost:8090/health → لا CSP ولا HSTS ولا nosniff",
+          "server: lab-app/1.0.0 express-ish  و x-powered-by: lab-app"
+        ],
+        "request": "HEAD /health HTTP/1.1",
+        "response": "HTTP/1.1 200 OK\ncontent-type: application/json; charset=utf-8\nserver: lab-app/1.0.0 express-ish\nx-powered-by: lab-app"
+      },
+      "remediation": {
+        "summary": "وسيط ترويسات ثابت: CSP('default-src 'none'; frame-ancestors 'none'')، nosniff، Referrer-Policy: no-referrer، HSTS عند HTTPS، وإخفاء Server/X-Powered-By.",
+        "patch": "+  const SECURITY_HEADERS = {\n+    'content-security-policy': \"default-src 'none'; frame-ancestors 'none'; base-uri 'none'\",\n+    'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer',\n+    'permissions-policy': 'geolocation=(), camera=(), microphone=()',\n+  }; // + احذف server/x-powered-by\n"
+      },
+      "verified": true,
+      "affected_endpoint": "all routes",
+      "id": "F-65472a",
+      "status": "open",
+      "found_at": "2026-08-29T19:54:33.816Z",
+      "reported_by": "arena-agent"
+    },
+    {
+      "title": "JWT: الخوارزمية غير مثبّتة ولا تحقق من iss/aud، وسر التوقيع في الكود",
+      "severity": "medium",
+      "cvss": 5.9,
+      "cwe": "347",
+      "owasp": "A02:2021 Cryptographic Failures",
+      "description": "readToken يتجاهل header.alg كلياً (يقبل أي قيمة طالما التوقيع يطابق HS256) ولا يتحقق من issuer/audience/subject نوعه، مع سر افتراضي 'dev-secret-do-not-reuse' في المصدر ومدة صلاحية 24 ساعة بلا إبطال. أي تسريب للسر = تزوير توكن admin لأي مستخدم.",
+      "reproduction": {
+        "steps": [
+          "قراءة المصدر: SECRET = process.env.LAB_JWT_SECRET || 'dev-secret-do-not-reuse'",
+          "الـ header يُقرأ ثم يُتجاهل: const [hdr, p, s] = ... ولا مقارنة لـ hdr.alg === 'HS256'",
+          "توقيع أي payload بـ HMAC نفس السر يمنح توكن صالحاً (role=admin可控)"
+        ],
+        "request": "{\"sub\":1,\"role\":\"admin\",\"exp\":<far-future>}\nHMAC-SHA256(secret=\"dev-secret-do-not-reuse\")",
+        "response": "يُقبل readToken لأن التوقيع يطابق والـ exp صالح — لا تحقق من alg/iss/aud"
+      },
+      "remediation": {
+        "summary": "ثبّت الخوارزمية (whitelist HS256 فقط أو EdDSA)، تحقق من iss/aud/sub، اجعل المدة قصيرة (15د) + refresh، واسحب السر من متغيرات البيئة مع تدويره.",
+        "patch": "-  const [hdr, p, s] = String(h || '').replace(/^Bearer /i, '').split('.');\n+  const [hdr, p, s] = String(h || '').replace(/^Bearer /i, '').split('.');\n+  const h = JSON.parse(Buffer.from(hdr, 'base64url').toString());\n+  if (h.alg !== 'HS256') return null;\n+  const c = JSON.parse(Buffer.from(p, 'base64url').toString());\n+  if (c.iss !== ISS || c.aud !== AUD) return null;\n+  if (typeof c.sub !== 'number') return null;"
+      },
+      "verified": false,
+      "affected_endpoint": "all authenticated routes",
+      "notes": "لم يُبنَ PoC تزوير كامل داخل المعمل لأن السر محلي؛ الخطر حقيقي عند أي تسريب للسر أو إعادة استخدام السر الافتراضي.",
+      "id": "F-016e36",
+      "status": "open",
+      "found_at": "2026-08-29T19:54:33.891Z",
+      "reported_by": "arena-agent"
+    }
+  ],
+  "evidence": [
+    "01-passive.txt",
+    "02-idor-massassign.txt",
+    "03-ssrf-xss.txt"
+  ]
+}

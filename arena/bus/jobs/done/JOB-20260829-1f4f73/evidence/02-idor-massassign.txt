@@ -1,0 +1,13 @@
+### IDOR (sara=2 reads ali's 1002)
+HTTP/1.1 200 OK
+content-type: application/json; charset=utf-8
+content-length: 99
+server: lab-app/1.0.0 express-ish
+x-powered-by: lab-app
+Date: Sat, 29 Aug 2026 19:54:43 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"id":1002,"user_id":1,"item":"Keyboard","amount":120,"card":"5500005555555559","note":"gift wrap"}
+### mass assignment
+{"updated":true,"user":{"id":2,"email":"sara@lab.test","password=[REDACTED]","role":"admin","note":"x"}}
