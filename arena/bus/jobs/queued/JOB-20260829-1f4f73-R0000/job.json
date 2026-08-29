@@ -1,6 +1,6 @@
 {
   "schema": "arena.job/1",
-  "id": "JOB-20260829-1f4f73-R5042",
+  "id": "JOB-20260829-1f4f73-R0000",
   "title": "retest: DEMO — فحص معمل الاختبار (10 findings)",
   "target": {
     "value": "http://localhost:8090",
@@ -9,14 +9,15 @@
   },
   "actions": [
     "passive",
+    "sast",
     "active",
     "exploit-validation"
   ],
   "mode": "retest",
   "priority": "P2",
   "state": "queued",
-  "created_at": "2026-08-29T19:54:45.044Z",
-  "updated_at": "2026-08-29T19:54:45.044Z",
+  "created_at": "2026-08-29T19:59:20.002Z",
+  "updated_at": "2026-08-29T19:59:20.002Z",
   "requested_by": "n8n",
   "notify_url": null,
   "context": {
