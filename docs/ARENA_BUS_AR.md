@@ -66,6 +66,7 @@
 | `arena/n8n/arena-*.json` | ٤ سير عمل جاهزة للاستيراد |
 | `arena/dashboard/index.html` + `arena serve` | لوحة معلومات محلية RTL بدون أصول خارجية |
 | `arena/lab/` | تطبيق معمل مُتعمَّد الضعف + نسخة مؤمَّنة + `verify.mjs` |
+| `arena/probe/probe.mjs` + `plans/*.json` | منفّذ خطط فحص نقلوب — يعمل حيث يوجد الوصول للشبكة |
 | `arena/tests/smoke.sh` | 14 اختباراً ذاتياً للناقل |
 | `arena/docker-compose.yml` | نسخة "بلا API" من البنية (ن8n + Postgres + runner + strix اختياري) |
 
@@ -105,6 +106,38 @@ bash arena/tests/smoke.sh
    والتهمه الـ shell. الصيغة الصحيحة: `"=cmd --title \"{{ $json.title }}\" --target \"{{ $json.target }}\""`.
 2. **`arena serve`/CLI يحتاج `ARENA_BUS`**: n8n يعمل بمجلد عمل مختلف، لذا كل أمر يبدأ بـ
    `ARENA_BUS=/path/arena/bus …` (أو صدّر المتغير في حاوية n8n). بدون ذلك يُنشئ الناقل مجلداً جديداً.
+
+---
+
+## ٣.٤ إضافة هدف حقيقي + «من أين يُنفَّذ الفحص» (مهم)
+
+```bash
+# ١) سجّل الأصل الذي تملكه (هذا هو التفويض — لا يُفحص شيء بدونه)
+arena target add https://staging.myapp.com --kind url --actions passive,active --note "staging ملكي"
+arena target check https://staging.myapp.com --actions active     # تحقق سريع قبل الجدولة
+arena target list                                                # ما هو مسموح الآن؟
+
+# ٢) مهمة عادية
+ID=$(arena submit --title "staging weekly" --target https://staging.myapp.com \
+       --actions passive,sast,active --mode full --json | node -pe 'JSON.parse(require("fs").readFileSync(0,"utf8")).id')
+arena watch "$ID" --timeout 3600
+```
+
+**موضع الشبكة (network position) يقرّر من ينفّذ ماذا:**
+
+| مكان التنفيذ | يصل لـ | مناسب لـ |
+|---|---|---|
+| بيئة Arena (هذه الجلسة) | localhost + نطاقات محدودة (npm/github/docs) | تطبيقات المعمل، تحليل الكود داخل المستودع، أدوات نصية |
+| **جهازك / خادمك** (`arena serve` + runner) | كل شيء: LAN، staging، VPN، emulator الأندرويد | الفحص الحي للأصول الحقيقية |
+| **`arena probe`** على جهاز العميل | نفس ما يصله جهازه | حين أكتب أنا الخطة وهو يُشغّلها: الردود ترجع عبر git وأُحلّلها |
+
+`arena/probe/probe.mjs` أداة مستقلة بملف واحد (بلا اعتماديات): تنسخ مع خطتك إلى أي جهاز داخل الشبكة
+المستهدفة، فيُنفّذ الطلبات ويكتب الردود المنقّاة في `bus/jobs/<ID>/probes/*.json` + `results.json`
+مع إسيرشنات (status/headers/body/json/latency/no_error_leak) و`capture` لسرقة التوكن من ردٍّ إلى آخر.
+
+**قياس مُجرَّب:** نفس الخطة `arena/probe/plans/owasp-baseline.json` أعطت
+**26/26 إسيرشن نجاح** على النسخة المؤمَّنة و**13/26** على النسخة الأصلية — أي أنها تكتشف الفرق
+بشكل حتمي، لا بالثقة بكلام الوكيل. ورمز الخروج `1` عند أي فشل = تصلح كبوابة CI مباشرة.
 
 ---
 

@@ -1,0 +1,128 @@
+{
+  "name": "owasp-baseline",
+  "_why": "خطة فحص قابلة للنقل: انسخ arena/probe/probe.mjs + هذا الملف إلى الجهاز الذي يملك الوصول للشبكة، وشغّله هناك. الردود ترجع عبر git إلى الناقل.",
+  "base": "http://localhost:8090",
+  "timeoutMs": 8000,
+  "requests": [
+    {
+      "id": "recon-health",
+      "method": "GET",
+      "path": "/health",
+      "note": "مسح معلوماتي: هل الخدمة حية؟"
+    },
+    {
+      "id": "headers-csp",
+      "method": "GET",
+      "path": "/health",
+      "assert": [
+        { "header": { "content-security-policy": { "present": true } } },
+        { "header": { "x-content-type-options": { "equals": "nosniff" } } },
+        { "header": { "x-powered-by": { "present": false } } }
+      ],
+      "note": "A05: ترويسات أمنية + إخفاء البنية"
+    },
+    {
+      "id": "authz-debug-endpoint",
+      "method": "GET",
+      "path": "/api/debug",
+      "assert": [{ "status": { "in": [401, 403, 404] } }, { "body_not_contains": "password" }],
+      "note": "A01: لا نقاط تصحيح مكشوفة"
+    },
+    {
+      "id": "login-baseline",
+      "method": "POST",
+      "path": "/api/login",
+      "body": { "email": "sara@lab.test", "password": "Passw0rd!2" },
+      "assert": [{ "status": { "equals": 200 } }, { "json": { "path": "token", "exists": true } }, { "body_not_contains": "password_hash" }],
+      "capture": { "token": "json.token" },
+      "note": "دخول صحيح — الـ token يُلتقط تلقائياً ويُبنى منه forged لاختبار تزوير JWT"
+    },
+    {
+      "id": "idor-orders",
+      "method": "GET",
+      "path": "/api/orders/1002",
+      "headers": { "authorization": "Bearer {{token}}" },
+      "assert": [{ "status": { "in": [401, 404] } }],
+      "note": "A01/BOLA: الطلب 1002 يملكه مستخدم آخر"
+    },
+    {
+      "id": "idor-pan",
+      "method": "GET",
+      "path": "/api/orders/1001",
+      "headers": { "authorization": "Bearer {{token}}" },
+      "assert": [{ "status": { "equals": 200 } }, { "body_not_contains": "/4111111111111111|5500005555555559/" }, { "json": { "path": "card", "exists": false } }],
+      "note": "PCI: لا رقم بطاقة كامل في الرد"
+    },
+    {
+      "id": "mass-assign-role",
+      "method": "POST",
+      "path": "/api/users/me",
+      "headers": { "authorization": "Bearer {{token}}" },
+      "body": { "role": "admin", "password": "pwned" },
+      "assert": [{ "json": { "path": "user.role", "equals": "customer" } }, { "json": { "path": "user.password", "exists": false } }],
+      "note": "A04: لا ترقيات صلاحيات من الجسم"
+    },
+    {
+      "id": "ssrf-internal",
+      "method": "POST",
+      "path": "/api/fetch-preview",
+      "body": { "url": "http://127.0.0.1:5678/healthz" },
+      "assert": [{ "status": { "equals": 400 } }, { "body_not_contains": "ok" }],
+      "note": "A10: SSRF إلى منفذ داخلي مرفوض"
+    },
+    {
+      "id": "ssrf-metadata",
+      "method": "POST",
+      "path": "/api/fetch-preview",
+      "body": { "url": "http://169.254.169.254/latest/meta-data/" },
+      "assert": [{ "status": { "equals": 400 } }],
+      "note": "A10: SSRF إلى cloud metadata مرفوض"
+    },
+    {
+      "id": "ssrf-scheme",
+      "method": "POST",
+      "path": "/api/fetch-preview",
+      "body": { "url": "file:///etc/passwd" },
+      "assert": [{ "status": { "in": [400, 415] } }],
+      "note": "A10: مخططات غير http ممنوعة"
+    },
+    {
+      "id": "xss-search-json",
+      "method": "GET",
+      "path": "/search?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E",
+      "assert": [{ "header": { "content-type": { "equals": "application/json; charset=utf-8" } } }],
+      "note": "A07: لا HTML من API"
+    },
+    {
+      "id": "xss-search-html",
+      "method": "GET",
+      "path": "/search.html?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E",
+      "assert": [{ "body_not_contains": "<script>alert(1)</script>" }, { "body_contains": "&lt;script&gt;" }],
+      "note": "A07: تهريب المخرجات في الصفحات"
+    },
+    {
+      "id": "auth-enum",
+      "method": "POST",
+      "path": "/api/login",
+      "body": { "email": "ghost@lab.test", "password": "x" },
+      "assert": [{ "status": { "equals": 401 } }, { "body_not_contains": "no such user" }],
+      "note": "A07(2021 A07): رسالة موحّدة تمنع تعداد المستخدمين"
+    },
+    {
+      "id": "jwt-forgery",
+      "method": "GET",
+      "path": "/api/orders/1001",
+      "headers": { "authorization": "Bearer {{forged}}" },
+      "assert": [{ "status": { "equals": 401 } }],
+      "note": "A02: رفض alg=none / توكن غير موقع"
+    },
+    {
+      "id": "error-hygiene",
+      "method": "POST",
+      "path": "/api/fetch-preview",
+      "body": { "url": "ftp://x/y" },
+      "assert": [{ "no_error_leak": true }, { "status": { "in": [400, 415, 422] } }],
+      "note": "A05: لا stack trace / مسارات داخلية"
+    }
+  ]
+}

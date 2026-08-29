@@ -15,7 +15,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import http from 'node:http';
 import https from 'node:https';
 
@@ -164,6 +164,13 @@ const stdinText = () => {
 
 const SEVERITY_RANK = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 
+function logAuditTarget(action, entry) {
+  try {
+    const p = path.join(BUS.root, '..', 'config', 'engagement.audit.ndjson');
+    fs.appendFileSync(p, JSON.stringify({ ts: nowIso(), action, entry }) + '\n');
+  } catch {}
+}
+
 const CMD = {
   help() {
     out(`arena — job bus for n8n + Strix + Arena Agent Mode (zero API)
@@ -188,6 +195,9 @@ const CMD = {
   arena gate <id> [--max-severity high]   # exit 1 if blocking findings (CI/CD)
   arena status <id> [--field state]        # plain text for n8n IF nodes
   arena watch <id> [--timeout 1800] [--interval 15] [--quiet]
+  arena target add <url|path> [--kind url|code] [--actions passive,active,exploit-validation] [--note ""]
+  arena target list | rm <target> | check <target> [--actions …]
+  arena probe <id> --plan plan.json [--var token=…]   # تنفيذ خطة الفحص حيث يوجد الوصول للشبكة
   arena stats                     # dashboard summary
   arena export <id> [--out strix_runs/<id>]  # Strix-shaped run dir
   arena commit  # git commit the bus so the other side pulls it
@@ -520,6 +530,58 @@ const CMD = {
     if (flags.json) return out({ ok: true, id: rec.job.id, counts: countsFor(f), findings: f });
     out(f.map((x) => `${x.severity.toUpperCase().padEnd(8)} ${(x.cvss ?? '').toString().padEnd(4)} ${x.status.padEnd(18)} ${x.id}  ${x.title}`).join('\n') || '(no findings)');
   },
+
+  /* ---------------------------------------------- تفويض الأهداف (engagement.json) */
+  target({ pos, flags }) {
+    const sub = pos[0] || 'list';
+    const cfgPath = BUS.config;
+    const cfg = readJson(cfgPath, { version: 1, allowlist: [], forbidden: [], redact: ['Authorization', 'Cookie', 'Set-Cookie'], maxDurationSeconds: 3600 }) || { allowlist: [] };
+    cfg.allowlist = cfg.allowlist || [];
+    const norm = (t) => String(t || '').trim().replace(/\/+$/, '').toLowerCase();
+    if (sub === 'list') return out({ ok: true, file: cfgPath, allowlist: cfg.allowlist.map((a) => ({ target: a.target, kind: a.kind, actions: a.actions, note: a.note || '' })) });
+    if (sub === 'check') {
+      const a = checkAuthorization(pos[1], String(flags.actions || 'passive').split(','));
+      return out({ ok: a.allowed, target: pos[1], ...(a.allowed ? { entry: a.entry } : { reason: a.reason, hint: a.hint }) });
+    }
+    const t = pos[1];
+    if (!t) die('usage: arena target add <url|path> [--kind url|code|apk] [--actions a,b] [--note "..."] | rm <target> | list | check <target>');
+    if (sub === 'add') {
+      const kind = flags.kind && flags.kind !== true ? flags.kind : /^https?:\/\//.test(t) ? 'url' : 'code';
+      const actions = String(flags.actions || (kind === 'code' ? 'passive,sast' : 'passive')).split(',').map((x) => x.trim()).filter(Boolean);
+      const known = ['passive', 'sast', 'active', 'exploit-validation', 'fuzz', 'osint', 'compliance-evidence'];
+      const bad = actions.filter((x) => !known.includes(x));
+      if (bad.length) die(`إجراءات غير معروفة: ${bad.join(', ')} — المسموح: ${known.join(', ')}`);
+      const i = cfg.allowlist.findIndex((a) => norm(a.target) === norm(t));
+      const entry = { target: t.replace(/\/+$/, ''), kind, actions, note: flags.note && flags.note !== true ? String(flags.note) : 'أُضيف بـ arena target add' };
+      if (i >= 0) cfg.allowlist[i] = { ...cfg.allowlist[i], ...entry };
+      else cfg.allowlist.push(entry);
+      if (entry.actions.some((x) => ['active', 'exploit-validation', 'fuzz'].includes(x)) && !cfg._authorizedReminder) {
+        console.error('\n  ⚠️  أنت تمنح الآن إذناً بفحص حي. تأكد أن هذا الأصل ملكك أو لديك تفويض مكتوب،');
+        console.error('     وأن سياسة المزوّد (SaaS/استضافة مشتركة) تسمح بالفحص. راجع قسم authorized tester / safe-harbour.\n');
+      }
+      writeJsonAtomic(cfgPath, cfg);
+      logAuditTarget('add', entry);
+      return out({ ok: true, action: 'add', entry, file: cfgPath, total: cfg.allowlist.length });
+    }
+    if (sub === 'rm' || sub === 'remove') {
+      const before = cfg.allowlist.length;
+      cfg.allowlist = cfg.allowlist.filter((a) => norm(a.target) !== norm(t));
+      writeJsonAtomic(cfgPath, cfg);
+      logAuditTarget('remove', { target: t });
+      return out({ ok: before !== cfg.allowlist.length, action: 'remove', target: t, removed: before - cfg.allowlist.length });
+    }
+    die(`unknown subcommand: ${sub} (add|rm|list|check)`);
+  },
+
+  probe({ pos, flags }) {
+    const script = path.join(BUS.root, '..', 'probe', 'probe.mjs');
+    if (!fs.existsSync(script)) die(`probe.mjs غير موجود: ${script} — انسخه للجهاز الذي يملك الوصول للشبكة`);
+    const args = [script, ...pos];
+    for (const [k, v] of Object.entries(flags)) args.push(`--${k}`, ...(v === true ? [] : [String(v)]));
+    const r = spawnSync(process.execPath, args, { stdio: 'inherit', env: { ...process.env, ARENA_BUS: BUS.root } });
+    process.exitCode = r.status ?? 1;
+  },
+
 
   gate({ pos, flags }) {
     const rec = findJob(pos[0]);

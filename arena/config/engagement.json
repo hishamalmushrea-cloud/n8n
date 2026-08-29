@@ -15,27 +15,61 @@
     {
       "target": "http://localhost:8090",
       "kind": "url",
-      "actions": ["passive", "sast", "active", "exploit-validation", "fuzz"],
+      "actions": [
+        "passive",
+        "sast",
+        "active",
+        "exploit-validation",
+        "fuzz"
+      ],
       "note": "lab target — متعمد الضعف، محلي، ملكي",
       "credentials_note": "ali@lab.test / sara@lab.test (lab only)"
     },
     {
       "target": "http://127.0.0.1:8090",
       "kind": "url",
-      "actions": ["passive", "sast", "active", "exploit-validation"],
+      "actions": [
+        "passive",
+        "sast",
+        "active",
+        "exploit-validation"
+      ],
       "note": "alias للمعمل"
     },
     {
       "target": "/home/user/n8n/arena/lab/vuln-app",
       "kind": "code",
-      "actions": ["passive", "sast"],
+      "actions": [
+        "passive",
+        "sast"
+      ],
       "note": "مصدر تطبيق المعمل — SAST فقط"
     },
     {
       "target": "https://staging.myapp.com",
       "kind": "url",
-      "actions": ["passive"],
+      "actions": [
+        "passive"
+      ],
       "note": "مثال: بيئة تجهيز أملكها — فحص سلبي فقط حتى تقرّر غير ذلك"
+    },
+    {
+      "target": "http://localhost:8091",
+      "kind": "url",
+      "actions": [
+        "passive",
+        "active"
+      ],
+      "note": "النسخة الضعيفة للمعمل (مؤقتة)"
+    },
+    {
+      "target": "http://localhost:8092",
+      "kind": "url",
+      "actions": [
+        "passive",
+        "active"
+      ],
+      "note": "tmp"
     }
   ],
   "forbidden": [
@@ -47,10 +81,25 @@
     "phishing",
     "access-to-third-party-tenants"
   ],
-  "requireApprovalFor": ["exploit-validation", "fuzz"],
-  "redact": ["Authorization", "Cookie", "Set-Cookie", "X-Api-Key"],
+  "requireApprovalFor": [
+    "exploit-validation",
+    "fuzz"
+  ],
+  "redact": [
+    "Authorization",
+    "Cookie",
+    "Set-Cookie",
+    "X-Api-Key"
+  ],
   "maxDurationSeconds": 3600,
   "maxConcurrentJobs": 1,
-  "retest": { "auto": true, "maxRounds": 3 },
-  "reporting": { "language": "ar", "cvss_version": "3.1", "attach_evidence": true }
+  "retest": {
+    "auto": true,
+    "maxRounds": 3
+  },
+  "reporting": {
+    "language": "ar",
+    "cvss_version": "3.1",
+    "attach_evidence": true
+  }
 }

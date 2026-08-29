@@ -52,6 +52,9 @@ arena evidence  <ID> poc.txt --stdin       # يُخفي الأسرار تلقا�
 arena complete <ID> --summary "..."        # يولّد report.md + report.json + verdict
 arena gate     <ID> --max-severity high   #_ci_ يرفض البناء إذا كان هناك عالي/حرج
 arena export   <ID> --out strix_runs/<ID> # شكل مُخرَجات Strix القياسي
+arena target add <url|path> --kind url --actions passive,active  # تسجيل أصل تملكه
+arena target list | check <target> | rm <target>
+arena probe <id> --plan arena/probe/plans/owasp-baseline.json --var token=eyJ…
 arena stats                               # للخُطط ولوحة المعلومات
 arena serve --port 8787                   # قراءة فقط: /api/stats للوحة المعلومات
 ```

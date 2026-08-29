@@ -1,0 +1,2 @@
+{"ts":"2026-08-29T20:18:00.624Z","action":"add","entry":{"target":"http://localhost:8091","kind":"url","actions":["passive","active"],"note":"النسخة الضعيفة للمعمل (مؤقتة)"}}
+{"ts":"2026-08-29T20:19:05.977Z","action":"add","entry":{"target":"http://localhost:8092","kind":"url","actions":["passive","active"],"note":"tmp"}}
