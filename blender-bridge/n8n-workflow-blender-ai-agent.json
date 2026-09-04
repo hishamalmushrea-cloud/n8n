@@ -1,0 +1,178 @@
+{
+  "name": "Blender AI Designer — مصمم بلندر بالذكاء الاصطناعي",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "chat-trigger-node",
+      "name": "When chat message received",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -300,
+        0
+      ],
+      "webhookId": "b1e4c2a1-0000-4a2b-9c3d-blenderai01"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "أنت «مصمم بلندر» — مساعد تصميم ثلاثي الأبعاد يتحدث العربية ويتحكم ببرنامج Blender مباشرة عبر الأدوات المتاحة.\n\nقواعد العمل الإلزامية:\n1. عند بداية كل طلب جديد: نادِ أداة «Blender Scene» أولاً لتفهم ما موجود في المشهد حالياً.\n2. لتنفيذ أي شيء: نادِ أداة «Blender Exec» واكتب كود Python كاملاً باستخدام مكتبة bpy (لا تكتب أجزاء ناقصة).\n3. بعد كل تعديل ناجح: عيّن المتغير RESULT بملخص قصير، مثال: RESULT = {\"created\": \"Cube\", \"at\": [0,0,0]}\n4. للتصيير النهائي (Render) استخدم كوداً مثل:\n   import os; os.makedirs(r'C:/n8n-renders', exist_ok=True)\n   bpy.ops.render.render(write_still=True, filepath=r'C:/n8n-renders/scene.png')\n   وغيّر المسار إلى مجلد حقيقي عند المستخدم إذا حدده.\n5. الوحدات بالمتر، ومركز العالم (0,0,0). إذا لم توجد كاميرا أو إضاءة أنشئهما قبل الرندر.\n6. إذا رجع خطأ من الكود: اقرأ رسالة الخطأ، أصلح الكود وحاول مرة أخرى (حتى 3 محاولات).\n7. ردودك بالعربية، مختصرة وواضحة، وتشرح ماذا نفذت بالضبط.\n\nأمثلة على الطلبات: تصميم غرفة مع أثاث، كوب زجاجي، سيارة بسيطة بالأشكال، إضاءة استوديو (Three-Point)، مواد (زجاج/معدن/بلاستيك خشبي)، حركة بالـ keyframes، ثم رندر نهائي بصيغة PNG."
+        }
+      },
+      "id": "blender-agent-node",
+      "name": "Blender AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": "qwen2.5:7b",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "id": "ollama-model-node",
+      "name": "Ollama Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        -300,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "id": "chat-memory-node",
+      "name": "Chat Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get the current Blender scene: all objects with type, location, rotation, scale, dimensions, materials, cameras, active camera and render engine. ALWAYS call this tool FIRST before creating or modifying anything, so you understand what already exists in the scene.",
+        "method": "GET",
+        "url": "http://127.0.0.1:9876/scene",
+        "specifyBy": "keypair",
+        "parameters": {
+          "values": []
+        },
+        "options": {}
+      },
+      "id": "tool-scene-node",
+      "name": "Blender Scene",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        320,
+        -160
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Execute Python code inside Blender (bpy API). Write COMPLETE runnable Python code. The code runs with `bpy` available. After doing the work, set the variable RESULT to a short JSON-serializable summary, e.g. RESULT = {\"created\": \"Cube\"}. Capabilities: create/delete objects (bpy.ops.mesh.primitive_*_add), materials (bpy.data.materials.new, Principled BSDF: baseColor, metallic, roughness, transmission for glass), lights, cameras, modifiers (subdivision, mirror, bevel), keyframe animation, rendering (bpy.ops.render.render(write_still=True, filepath='C:/n8n-renders/out.png') — create the folder with os.makedirs first). Units are meters; world origin is (0,0,0). If the code fails, read the returned traceback, fix the code and retry.",
+        "method": "POST",
+        "url": "http://127.0.0.1:9876/exec",
+        "specifyBy": "json",
+        "json": "{\n  \"code\": \"{code}\"\n}",
+        "options": {}
+      },
+      "id": "tool-exec-node",
+      "name": "Blender Exec",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [
+        320,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 🪟 لوحة تحكم Blender AI\n\n1) شغّل Blender وافتح تبويب **Scripting** ثم شغّل ملف `blender_n8n_server.py` (من مجلد blender-bridge)\n2) شغّل Ollama محلياً: `ollama serve` ثم `ollama pull qwen2.5:7b`\n3) افتح عقدة **Ollama Chat Model** وأضف Credential: Base URL = http://127.0.0.1:11434\n4) افتح نافذة المحادثة (Chat) بالأسفل واكتب طلبك بالعربية!\n\nمثال: «صمم غرفة صغيرة فيها طاولة وكوب ماء ثم رندرها»",
+        "height": 400,
+        "width": 420
+      },
+      "id": "sticky-note-node",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -700,
+        -260
+      ]
+    }
+  ],
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Blender AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Blender AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Blender AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Blender Scene": {
+      "ai_tool": [
+        [
+          {
+            "node": "Blender AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Blender Exec": {
+      "ai_tool": [
+        [
+          {
+            "node": "Blender AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
