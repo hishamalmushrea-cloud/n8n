@@ -1,0 +1,14 @@
+{
+  "id": "example-001-exec",
+  "action": "exec",
+  "ok": true,
+  "result": {
+    "ok": true,
+    "stdout": "",
+    "result": {
+      "demo": true,
+      "scene_objects": 2
+    }
+  },
+  "agent_time": "2026-09-04 21:49:48"
+}

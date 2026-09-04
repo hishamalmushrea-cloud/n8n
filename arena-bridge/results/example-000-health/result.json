@@ -1,0 +1,11 @@
+{
+  "id": "example-000-health",
+  "action": "health",
+  "ok": true,
+  "result": {
+    "ok": true,
+    "in_blender": false,
+    "stub": true
+  },
+  "agent_time": "2026-09-04 21:49:48"
+}
