@@ -1,0 +1,6 @@
+{
+  "id": "example-000-health",
+  "action": "health",
+  "params": {},
+  "note": "مثال: فحص حالة Blender — سيظهر ok=true ونسخة بلندر"
+}

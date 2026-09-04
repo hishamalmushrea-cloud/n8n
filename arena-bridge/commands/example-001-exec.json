@@ -1,0 +1,8 @@
+{
+  "id": "example-001-exec",
+  "action": "exec",
+  "params": {
+    "code": "import bpy\ncount = len(bpy.context.scene.objects)\nRESULT = {'demo': True, 'scene_objects': count}"
+  },
+  "note": "مثال: تنفيذ كود bpy وقراءة عدد كائنات المشهد"
+}
