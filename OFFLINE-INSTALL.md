@@ -86,3 +86,7 @@ Database runs on WebAssembly — zero native compilation, zero internet. Only re
 Join the 5 parts (`copy /b` on Windows, `cat` on Linux/macOS), extract, then run
 `node n8n/bin/n8n start` or double-click `start-n8n.cmd`. sha256 of full bundle:
 `bdc3c07fd71a30fd0fccc85db7ff29326bdeb217d52e4d87fafbbb3d074c717e`
+
+## 🪟 إضافة: ربط n8n بالذكاء الاصطناعي و Blender
+بعد التثبيت، افتح [BLENDER-AI-SETUP.md](./BLENDER-AI-SETUP.md) — ستجد جاهزاً:
+خادم جسر لبلندر + سير عمل وكيل ذكاء اصطناعي يستورد بنقرة + دليل عربي كامل.
