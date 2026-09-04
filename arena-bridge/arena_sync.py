@@ -46,13 +46,20 @@ except Exception:
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BRANCH = os.environ.get("ARENA_BRANCH", "arena/01a05efe-n8n")
 BRIDGE = os.environ.get("ARENA_BRIDGE", "http://127.0.0.1:9876").rstrip("/")
-POLL = int(os.environ.get("ARENA_POLL", "15"))
+POLL = int(os.environ.get("ARENA_POLL", "10"))
+
+# كم مرة يعيد المحاولة إذا كان Blender مغلقاً (10 ثوانٍ × 60 = ينتظر ~10 دقائق)
+MAX_BRIDGE_RETRIES = int(os.environ.get("ARENA_BRIDGE_RETRIES", "60"))
 
 CMDS_DIR = os.path.join(ROOT, "arena-bridge", "commands")
 RESULTS_DIR = os.path.join(ROOT, "arena-bridge", "results")
 STATE_FILE = os.path.join(ROOT, "arena-bridge", ".arena-sync.json")
 
 ACTION_TIMEOUTS = {"health": 30, "scene": 60, "exec": 600, "screenshot": 600, "render": 7200}
+
+# عدّاد المحاولات للأوامر التي تنتظر فتح Blender
+_wait_attempts = {}
+_wait_logged = set()
 
 
 def log(msg):
@@ -173,6 +180,16 @@ def process_command(cmd_file):
         return None  # نُفّذ سابقاً
     log("executing command: %s (%s)" % (cid, cmd.get("action")))
     result = call_bridge(cmd)
+    # إذا كان Blender مغلقاً: انتظر وأعد المحاولة بدل الفشل
+    err = str(result.get("error") or "") if isinstance(result, dict) else ""
+    if "cannot reach Blender bridge" in err:
+        n = _wait_attempts.get(cid, 0) + 1
+        _wait_attempts[cid] = n
+        if cid not in _wait_logged or n % 12 == 0:
+            log("waiting for Blender to open... (%s, retry %d/%d)" % (cid, n, MAX_BRIDGE_RETRIES))
+            _wait_logged.add(cid)
+        if n < MAX_BRIDGE_RETRIES:
+            return None  # أبقِ الأمر معلقاً — سينفذ عند فتح Blender
     os.makedirs(out_dir, exist_ok=True)
     image_ref = None
     img = result.pop("image_base64_png", None) if isinstance(result, dict) else None
@@ -194,6 +211,7 @@ def process_command(cmd_file):
         payload["image"] = image_ref
     with open(result_path, "w", encoding="utf-8") as fh:
         json.dump(payload, fh, ensure_ascii=False, indent=2)
+    _wait_attempts.pop(cid, None)
     log("result saved: %s (ok=%s)" % (cid, payload["ok"]))
     return cid
 
