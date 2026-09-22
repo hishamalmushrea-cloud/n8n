@@ -1,0 +1,341 @@
+{
+  "name": "Continuous AI Dev Team - Android Studio Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "id": "manual-trigger",
+      "name": "Manual Trigger - Start Project",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "idea",
+              "name": "project_idea",
+              "value": "تطبيق تذكير شرب الماء: واجهة جميلة بـ Jetpack Compose، يحسب احتياج المستخدم، إشعارات كل ساعة، حفظ البيانات بـ Room، رسم بياني للاستهلاك اليومي",
+              "type": "string"
+            },
+            {
+              "id": "duration",
+              "name": "duration_hours",
+              "value": 12,
+              "type": "number"
+            },
+            {
+              "id": "start",
+              "name": "start_time",
+              "value": "={{ $now }}",
+              "type": "string"
+            },
+            {
+              "id": "project_path",
+              "name": "project_path",
+              "value": "/home/node/android_projects/WaterReminderApp",
+              "type": "string"
+            },
+            {
+              "id": "iteration",
+              "name": "iteration",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-initial-vars",
+      "name": "Set Project Variables",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "prompt": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "أنت Architect Agent لفريق تطوير Android. مهمتك تحليل فكرة المشروع وتقسيمها لمهام صغيرة قابلة للتنفيذ. أخرج JSON فقط بهذا الشكل: {\"tasks\": [{\"id\":1, \"title\":\"...\", \"files\":[\"...\"], \"priority\":\"high\"}], \"tech_stack\": [\"Kotlin\", \"Compose\"], \"first_task\": \"...\"}"
+            },
+            {
+              "role": "user",
+              "content": "=فكرة المشروع: {{$json.project_idea}}\n\nالتكرار الحالي: {{$json.iteration}}\nحالة المشروع السابقة: {{$('Get Project State').item.json.state || 'مشروع جديد'}}\n\nحلل وقسم المهام. ما هي المهمة التالية الأكثر أهمية؟"
+            }
+          ]
+        },
+        "simplify": true
+      },
+      "id": "planner-agent",
+      "name": "Planner Agent (GPT-4o)",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [480, 0],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-api",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/scripts/arena-automation.js \"{{$json.project_idea}} - المهمة: {{ $json.first_task || $json.tasks[0].title }}\"",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "arena-agent",
+      "name": "Arena.ai Agent via Playwright",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [720, 0],
+      "notes": "يشغل سكريبت Playwright الذي يتحكم في Arena.ai Agent Mode في المتصفح. البديل: استخدم HTTP Request لو اكتشفت API الخفي."
+    },
+    {
+      "parameters": {
+        "command": "=cd {{$('Set Project Variables').item.json.project_path}} && ls -la && cat /tmp/arena_output.json",
+        "options": {}
+      },
+      "id": "sync-files",
+      "name": "Sync Files to Android Studio Folder",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [960, 0],
+      "notes": "هنا تفك ضغط ملفات Arena.ai وتنسخها لمجلد Android Studio. يمكن استخدام Write Binary Files Node بدل هذا."
+    },
+    {
+      "parameters": {
+        "command": "=bash /home/node/scripts/build-and-test.sh {{$('Set Project Variables').item.json.project_path}}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "build-project",
+      "name": "Build Android Project (Gradle)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1200, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.stdout }}",
+              "operation": "contains",
+              "value2": "BUILD_SUCCESS"
+            }
+          ]
+        }
+      },
+      "id": "check-build",
+      "name": "IF Build Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1440, 0]
+    },
+    {
+      "parameters": {
+        "model": "claude-3-5-sonnet-20240620",
+        "prompt": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "أنت خبير Android Build Fixer. تحلل أخطاء Gradle وتصلحها. أخرج JSON: {\"file_to_fix\": \"path\", \"fixed_content\": \"...\", \"explanation\": \"...\"}"
+            },
+            {
+              "role": "user",
+              "content": "=فشل البناء! إليك ملخص الخطأ:\n{{ $json.stdout }}\n\nاقرأ الملف: /tmp/android_logs/build_full.log\nالمشروع: {{$('Set Project Variables').item.json.project_path}}\n\nأصلح الخطأ. أرجع الملف المصحح كاملاً."
+            }
+          ]
+        }
+      },
+      "id": "fixer-agent",
+      "name": "Bug Fixer Agent (Claude)",
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1.3,
+      "position": [1440, 300],
+      "credentials": {
+        "anthropicApi": {
+          "id": "anthropic-api",
+          "name": "Anthropic API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "prompt": {
+          "messages": [
+            {
+              "role": "system",
+              "content": "أنت Improver Agent. بعد نجاح البناء، اقترح 3 تحسينات للكود أو الأداء أو UI. أخرج JSON: {\"improvements\": [{\"type\":\"performance\", \"file\":\"...\", \"suggestion\":\"...\"}]}"
+            },
+            {
+              "role": "user",
+              "content": "=البناء نجح! المشروع: {{$('Set Project Variables').item.json.project_path}}\n\nحلل الكود واقترح تحسينات حقيقية قابلة للتطبيق. لا تكرر نفس التحسينات."
+            }
+          ]
+        }
+      },
+      "id": "improver-agent",
+      "name": "Improver Agent",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [1680, -200]
+    },
+    {
+      "parameters": {
+        "table": "project_state",
+        "operation": "upsert",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "project_name": "={{ $('Set Project Variables').item.json.project_path }}",
+            "iteration": "={{ $('Set Project Variables').item.json.iteration + 1 }}",
+            "last_build_status": "={{ $json.build_status || 'unknown' }}",
+            "last_error": "={{ $json.stdout || '' }}",
+            "updated_at": "={{ $now }}"
+          },
+          "matchingColumns": ["project_name"]
+        }
+      },
+      "id": "save-state",
+      "name": "Get Project State",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1680, 0],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-main",
+          "name": "Postgres Main"
+        }
+      },
+      "notes": "يحفظ حالة المشروع ليستمر حتى بعد إعادة تشغيل n8n"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ ($now.toMillis() - Date.parse($('Set Project Variables').item.json.start_time)) / 3600000 }}",
+              "operation": "larger",
+              "value2": "={{ $('Set Project Variables').item.json.duration_hours }}"
+            }
+          ]
+        }
+      },
+      "id": "check-duration",
+      "name": "IF Duration Finished?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1920, 0]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "minutes"
+      },
+      "id": "wait-loop",
+      "name": "Wait 5 Minutes Then Loop",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1920, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=🚀 تقرير فريق AI - التكرار {{$('Set Project Variables').item.json.iteration}}\n\n📁 المشروع: {{$('Set Project Variables').item.json.project_path}}\n✅ البناء: {{ $json.build_status }}\n🧪 الاختبارات: {{ $json.test_status }}\n⏱️ المدة المنقضية: {{ Math.round(($now.toMillis() - Date.parse($('Set Project Variables').item.json.start_time))/3600000*10)/10 }} / {{$('Set Project Variables').item.json.duration_hours}} ساعة\n\n🔧 آخر إجراء: {{ $('Build Android Project (Gradle)').item.json.stdout || '...' }}\n\nسيستمر العمل تلقائياً...",
+        "additionalFields": {}
+      },
+      "id": "telegram-report",
+      "name": "Telegram Reporter",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2160, 0],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-api",
+          "name": "Telegram API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": "continuous-ai-dev-team",
+        "data": {
+          "project_idea": "={{ $('Set Project Variables').item.json.project_idea }}",
+          "duration_hours": "={{ $('Set Project Variables').item.json.duration_hours }}",
+          "start_time": "={{ $('Set Project Variables').item.json.start_time }}",
+          "project_path": "={{ $('Set Project Variables').item.json.project_path }}",
+          "iteration": "={{ $('Set Project Variables').item.json.iteration + 1 }}"
+        }
+      },
+      "id": "loop-back",
+      "name": "Loop Back (Recursive Call)",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [2160, 300],
+      "notes": "يستدعي نفسه مع iteration +1 - هذه هي الحلقة المستمرة"
+    }
+  ],
+  "connections": {
+    "Manual Trigger - Start Project": {
+      "main": [[{ "node": "Set Project Variables", "type": "main", "index": 0 }]]
+    },
+    "Set Project Variables": {
+      "main": [[{ "node": "Planner Agent (GPT-4o)", "type": "main", "index": 0 }]]
+    },
+    "Planner Agent (GPT-4o)": {
+      "main": [[{ "node": "Arena.ai Agent via Playwright", "type": "main", "index": 0 }]]
+    },
+    "Arena.ai Agent via Playwright": {
+      "main": [[{ "node": "Sync Files to Android Studio Folder", "type": "main", "index": 0 }]]
+    },
+    "Sync Files to Android Studio Folder": {
+      "main": [[{ "node": "Build Android Project (Gradle)", "type": "main", "index": 0 }]]
+    },
+    "Build Android Project (Gradle)": {
+      "main": [[{ "node": "IF Build Success?", "type": "main", "index": 0 }]]
+    },
+    "IF Build Success?": {
+      "main": [
+        [{ "node": "Improver Agent", "type": "main", "index": 0 }],
+        [{ "node": "Bug Fixer Agent (Claude)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Improver Agent": {
+      "main": [[{ "node": "Get Project State", "type": "main", "index": 0 }]]
+    },
+    "Bug Fixer Agent (Claude)": {
+      "main": [[{ "node": "Sync Files to Android Studio Folder", "type": "main", "index": 0 }]]
+    },
+    "Get Project State": {
+      "main": [[{ "node": "IF Duration Finished?", "type": "main", "index": 0 }]]
+    },
+    "IF Duration Finished?": {
+      "main": [
+        [{ "node": "Telegram Reporter", "type": "main", "index": 0 }],
+        [{ "node": "Wait 5 Minutes Then Loop", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait 5 Minutes Then Loop": {
+      "main": [[{ "node": "Loop Back (Recursive Call)", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "ai-dev-team-orchestrator"
+  }
+}
